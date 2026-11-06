@@ -51,6 +51,16 @@ beforeEach(async () => {
 const asDevice = (uid: string) => env.authenticatedContext(uid).firestore() as unknown as Firestore
 const asAnonymous = () => env.unauthenticatedContext().firestore() as unknown as Firestore
 
+/** Appareil lié à un membre (niveau 2) : sa session est créée sans passer par les règles. */
+async function asMember(memberId: string): Promise<Firestore> {
+  const uid = `tel-${memberId}`
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore() as unknown as Firestore
+    await setDoc(doc(db, 'groups', CODE, 'sessions', uid), { memberId, updatedAt: new Date() })
+  })
+  return asDevice(uid)
+}
+
 const member = (name: string) => ({
   name,
   color: '#b8322a',
@@ -59,17 +69,23 @@ const member = (name: string) => ({
   createdAt: serverTimestamp(),
 })
 
-/** Crée un groupe et un membre sans passer par les règles. */
+/** Crée un groupe et ses membres (Léa, Tom, Mamie) sans passer par les règles. */
 async function seedGroup() {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore() as unknown as Firestore
     await setDoc(doc(db, 'groups', CODE), { name: 'Famille', createdAt: new Date() })
-    await setDoc(doc(db, 'groups', CODE, 'members', 'lea'), {
-      name: 'Léa',
-      color: '#b8322a',
-      archived: false,
-      createdAt: new Date(),
-    })
+    for (const [id, name] of [
+      ['lea', 'Léa'],
+      ['tom', 'Tom'],
+      ['mamie', 'Mamie'],
+    ]) {
+      await setDoc(doc(db, 'groups', CODE, 'members', id!), {
+        name,
+        color: '#b8322a',
+        archived: false,
+        createdAt: new Date(),
+      })
+    }
   })
 }
 
@@ -137,18 +153,18 @@ describe('members', () => {
     await seedGroup()
     const db = asDevice('bob')
     await assertSucceeds(getDocs(collection(db, 'groups', CODE, 'members')))
-    await assertSucceeds(setDoc(doc(db, 'groups', CODE, 'members', 'tom'), member('Tom')))
+    await assertSucceeds(setDoc(doc(db, 'groups', CODE, 'members', 'papy'), member('Tom')))
   })
 
   it("refuse d'ajouter un membre à un groupe inexistant", async () => {
     const db = asDevice('bob')
-    await assertFails(setDoc(doc(db, 'groups', 'ABCDEFGH', 'members', 'tom'), member('Tom')))
+    await assertFails(setDoc(doc(db, 'groups', 'ABCDEFGH', 'members', 'papy'), member('Tom')))
   })
 
   it('valide le schéma du membre', async () => {
     await seedGroup()
     const db = asDevice('bob')
-    const ref = doc(db, 'groups', CODE, 'members', 'tom')
+    const ref = doc(db, 'groups', CODE, 'members', 'papy')
     await assertFails(setDoc(ref, { ...member('Tom'), name: '' }))
     await assertFails(setDoc(ref, { ...member('Tom'), name: 'x'.repeat(31) }))
     await assertFails(setDoc(ref, { ...member('Tom'), color: 'red' }))
@@ -177,6 +193,33 @@ describe('members', () => {
     const ref = doc(asDevice('bob'), 'groups', CODE, 'members', 'lea')
     await assertFails(updateDoc(ref, { createdAt: serverTimestamp() }))
     await assertFails(deleteDoc(ref))
+  })
+})
+
+describe('sessions (niveau 2)', () => {
+  it('un appareil se lie à un membre existant, et seulement pour lui-même', async () => {
+    await seedGroup()
+    const db = asDevice('tel-tom')
+    const ref = doc(db, 'groups', CODE, 'sessions', 'tel-tom')
+    await assertSucceeds(setDoc(ref, { memberId: 'tom', updatedAt: serverTimestamp() }))
+    // « Ce n'est pas moi » : changer d'identité met à jour la session.
+    await assertSucceeds(setDoc(ref, { memberId: 'lea', updatedAt: serverTimestamp() }))
+    await assertSucceeds(getDoc(ref))
+    await assertFails(setDoc(ref, { memberId: 'inconnu', updatedAt: serverTimestamp() }))
+    await assertFails(
+      setDoc(doc(db, 'groups', CODE, 'sessions', 'tel-lea'), {
+        memberId: 'lea',
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it('ne lit ni ne liste les sessions des autres', async () => {
+    await seedGroup()
+    await asMember('lea')
+    const db = asDevice('tel-tom')
+    await assertFails(getDoc(doc(db, 'groups', CODE, 'sessions', 'tel-lea')))
+    await assertFails(getDocs(collection(db, 'groups', CODE, 'sessions')))
   })
 })
 
@@ -232,43 +275,46 @@ describe('events', () => {
     await assertFails(updateDoc(ref, { beneficiaryIds: [] }))
   })
 
-  it('lit les évènements par participant et les supprime', async () => {
+  it('lit les évènements par participant ; seul le créateur supprime (C3, niveau 2)', async () => {
     await seedGroup()
-    const db = asDevice('bob')
-    const ref = doc(db, 'groups', CODE, 'events', 'e1')
-    await assertSucceeds(setDoc(ref, event()))
+    const lea = await asMember('lea')
+    const tom = await asMember('tom')
+    await assertSucceeds(setDoc(doc(lea, 'groups', CODE, 'events', 'e1'), event()))
     await assertSucceeds(
       getDocs(
         query(
-          collection(db, 'groups', CODE, 'events'),
+          collection(tom, 'groups', CODE, 'events'),
           where('participantIds', 'array-contains', 'tom'),
         ),
       ),
     )
-    await assertSucceeds(deleteDoc(ref))
+    await assertFails(deleteDoc(doc(tom, 'groups', CODE, 'events', 'e1')))
+    await assertFails(deleteDoc(doc(asDevice('sans-session'), 'groups', CODE, 'events', 'e1')))
+    await assertSucceeds(deleteDoc(doc(lea, 'groups', CODE, 'events', 'e1')))
     await assertFails(getDoc(doc(asAnonymous(), 'groups', CODE, 'events', 'e1')))
   })
 })
 
+/** Évènement « noel » : Léa et Tom bénéficiaires ; Léa, Tom et Mamie participants. */
+async function seedEvent() {
+  await seedGroup()
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore() as unknown as Firestore
+    await setDoc(doc(db, 'groups', CODE, 'events', 'noel'), {
+      title: 'Noël',
+      type: 'noel',
+      date: null,
+      beneficiaryIds: ['lea', 'tom'],
+      participantIds: ['lea', 'tom', 'mamie'],
+      archived: false,
+      createdBy: 'lea',
+      createdAt: new Date(),
+    })
+  })
+}
+
 describe('wishes', () => {
   const wishPath = ['groups', CODE, 'events', 'noel', 'wishes'] as const
-
-  async function seedEvent() {
-    await seedGroup()
-    await env.withSecurityRulesDisabled(async (ctx) => {
-      const db = ctx.firestore() as unknown as Firestore
-      await setDoc(doc(db, 'groups', CODE, 'events', 'noel'), {
-        title: 'Noël',
-        type: 'noel',
-        date: null,
-        beneficiaryIds: ['lea'],
-        participantIds: ['lea', 'tom'],
-        archived: false,
-        createdBy: 'lea',
-        createdAt: new Date(),
-      })
-    })
-  }
 
   const wish = (overrides: Record<string, unknown> = {}) => ({
     beneficiaryId: 'lea',
@@ -283,12 +329,12 @@ describe('wishes', () => {
     ...overrides,
   })
 
-  it('ajoute un souhait complet ou avec le seul titre (D2)', async () => {
+  it('le bénéficiaire ajoute un souhait complet ou avec le seul titre (D2)', async () => {
     await seedEvent()
-    const db = asDevice('bob')
-    await assertSucceeds(setDoc(doc(db, ...wishPath, 'w1'), wish()))
+    const lea = await asMember('lea')
+    await assertSucceeds(setDoc(doc(lea, ...wishPath, 'w1'), wish()))
     await assertSucceeds(
-      setDoc(doc(db, ...wishPath, 'w2'), {
+      setDoc(doc(lea, ...wishPath, 'w2'), {
         beneficiaryId: 'lea',
         title: 'Une surprise',
         deleted: false,
@@ -298,16 +344,27 @@ describe('wishes', () => {
     )
   })
 
+  it("personne d'autre n'écrit sur la liste de Léa (niveau 2)", async () => {
+    await seedEvent()
+    const tom = await asMember('tom')
+    await assertFails(setDoc(doc(tom, ...wishPath, 'w1'), wish()))
+    await assertFails(setDoc(doc(asDevice('sans-session'), ...wishPath, 'w1'), wish()))
+    const lea = await asMember('lea')
+    await assertSucceeds(setDoc(doc(lea, ...wishPath, 'w1'), wish()))
+    await assertFails(
+      updateDoc(doc(tom, ...wishPath, 'w1'), { title: 'Piraté', updatedAt: serverTimestamp() }),
+    )
+  })
+
   it("refuse un souhait pour quelqu'un qui n'est pas bénéficiaire", async () => {
     await seedEvent()
-    await assertFails(
-      setDoc(doc(asDevice('bob'), ...wishPath, 'w1'), wish({ beneficiaryId: 'tom' })),
-    )
+    const mamie = await asMember('mamie')
+    await assertFails(setDoc(doc(mamie, ...wishPath, 'w1'), wish({ beneficiaryId: 'mamie' })))
   })
 
   it('valide le schéma : longueurs, lien http(s), prix, priorité', async () => {
     await seedEvent()
-    const ref = doc(asDevice('bob'), ...wishPath, 'w1')
+    const ref = doc(await asMember('lea'), ...wishPath, 'w1')
     await assertFails(setDoc(ref, wish({ title: '' })))
     await assertFails(setDoc(ref, wish({ title: 'x'.repeat(121) })))
     await assertFails(setDoc(ref, wish({ url: 'javascript:alert(1)' })))
@@ -323,46 +380,41 @@ describe('wishes', () => {
 
   it('modifie puis supprime logiquement, jamais physiquement (D3)', async () => {
     await seedEvent()
-    const ref = doc(asDevice('bob'), ...wishPath, 'w1')
+    const ref = doc(await asMember('lea'), ...wishPath, 'w1')
     await assertSucceeds(setDoc(ref, wish()))
     await assertSucceeds(
       updateDoc(ref, {
         title: 'Un autre livre',
         priority: deleteField(),
+        contentUpdatedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }),
     )
     await assertFails(updateDoc(ref, { title: 'Sans horodatage' }))
+    await assertFails(
+      updateDoc(ref, { contentUpdatedAt: new Date(2000, 0, 1), updatedAt: serverTimestamp() }),
+    )
     await assertFails(updateDoc(ref, { beneficiaryId: 'tom', updatedAt: serverTimestamp() }))
     await assertSucceeds(updateDoc(ref, { deleted: true, updatedAt: serverTimestamp() }))
     await assertFails(deleteDoc(ref))
   })
 
-  it('lit les souhaits non supprimés', async () => {
+  it('tout participant lit les souhaits non supprimés', async () => {
     await seedEvent()
-    const db = asDevice('bob')
-    await assertSucceeds(getDocs(query(collection(db, ...wishPath), where('deleted', '==', false))))
+    const tom = await asMember('tom')
+    await assertSucceeds(
+      getDocs(query(collection(tom, ...wishPath), where('deleted', '==', false))),
+    )
   })
 })
 
 describe('claims', () => {
   const eventPath = ['groups', CODE, 'events', 'noel'] as const
 
-  /** Évènement : Léa et Tom bénéficiaires, Léa, Tom et Mamie participants ; un souhait de Léa. */
   async function seedWish({ deleted = false } = {}) {
-    await seedGroup()
+    await seedEvent()
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore() as unknown as Firestore
-      await setDoc(doc(db, ...eventPath), {
-        title: 'Noël',
-        type: 'noel',
-        date: null,
-        beneficiaryIds: ['lea', 'tom'],
-        participantIds: ['lea', 'tom', 'mamie'],
-        archived: false,
-        createdBy: 'lea',
-        createdAt: new Date(),
-      })
       await setDoc(doc(db, ...eventPath, 'wishes', 'w1'), {
         beneficiaryId: 'lea',
         title: 'Un livre',
@@ -387,77 +439,80 @@ describe('claims', () => {
 
   it('plusieurs participants réservent le même souhait (E2)', async () => {
     await seedWish()
-    const db = asDevice('bob')
-    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
-    await assertSucceeds(setDoc(claimRef(db, 'w1_mamie'), claim('mamie')))
+    await assertSucceeds(setDoc(claimRef(await asMember('tom'), 'w1_tom'), claim('tom')))
+    await assertSucceeds(setDoc(claimRef(await asMember('mamie'), 'w1_mamie'), claim('mamie')))
   })
 
-  it('une seule réservation par personne et par souhait', async () => {
+  it('une seule réservation par personne et par souhait, à son propre nom', async () => {
     await seedWish()
-    const db = asDevice('bob')
-    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
-    // Recréer = écraser un document existant : refusé.
-    await assertFails(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
-    // Identifiant incohérent avec le contenu : refusé.
-    await assertFails(setDoc(claimRef(db, 'autre_id'), claim('mamie')))
+    const tom = await asMember('tom')
+    await assertSucceeds(setDoc(claimRef(tom, 'w1_tom'), claim('tom')))
+    await assertFails(setDoc(claimRef(tom, 'w1_tom'), claim('tom')))
+    await assertFails(setDoc(claimRef(tom, 'autre_id'), claim('tom')))
+    // Niveau 2 : on ne réserve pas au nom de quelqu'un d'autre.
+    await assertFails(setDoc(claimRef(tom, 'w1_mamie'), claim('mamie')))
   })
 
   it('jamais sur sa propre liste, seulement par un participant (règle 4)', async () => {
     await seedWish()
-    const db = asDevice('bob')
-    await assertFails(setDoc(claimRef(db, 'w1_lea'), claim('lea')))
-    await assertFails(setDoc(claimRef(db, 'w1_inconnu'), claim('inconnu')))
+    await assertFails(setDoc(claimRef(await asMember('lea'), 'w1_lea'), claim('lea')))
+    await assertFails(setDoc(claimRef(await asMember('papy'), 'w1_papy'), claim('papy')))
   })
 
   it('bénéficiaire cohérent avec le souhait, souhait non supprimé', async () => {
     await seedWish()
-    const db = asDevice('bob')
-    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { beneficiaryId: 'tom' })))
-    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { status: 'purchased' })))
-    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { note: 'x' })))
+    const mamie = await asMember('mamie')
+    await assertFails(setDoc(claimRef(mamie, 'w1_mamie'), claim('mamie', { beneficiaryId: 'tom' })))
+    await assertFails(setDoc(claimRef(mamie, 'w1_mamie'), claim('mamie', { status: 'purchased' })))
+    await assertFails(setDoc(claimRef(mamie, 'w1_mamie'), claim('mamie', { note: 'x' })))
   })
 
   it('refuse de réserver un souhait supprimé', async () => {
     await seedWish({ deleted: true })
-    await assertFails(setDoc(claimRef(asDevice('bob'), 'w1_tom'), claim('tom')))
+    await assertFails(setDoc(claimRef(await asMember('tom'), 'w1_tom'), claim('tom')))
   })
 
-  it('passe à Acheté puis annule (E3)', async () => {
+  it('seul le réservant passe à Acheté ou annule (E3, niveau 2)', async () => {
     await seedWish()
-    const db = asDevice('bob')
-    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
+    const tom = await asMember('tom')
+    const mamie = await asMember('mamie')
+    await assertSucceeds(setDoc(claimRef(tom, 'w1_tom'), claim('tom')))
+    await assertFails(
+      updateDoc(claimRef(mamie, 'w1_tom'), { status: 'purchased', updatedAt: serverTimestamp() }),
+    )
+    await assertFails(deleteDoc(claimRef(mamie, 'w1_tom')))
     await assertSucceeds(
-      updateDoc(claimRef(db, 'w1_tom'), { status: 'purchased', updatedAt: serverTimestamp() }),
+      updateDoc(claimRef(tom, 'w1_tom'), { status: 'purchased', updatedAt: serverTimestamp() }),
     )
     await assertFails(
-      updateDoc(claimRef(db, 'w1_tom'), { status: 'offert', updatedAt: serverTimestamp() }),
+      updateDoc(claimRef(tom, 'w1_tom'), { status: 'offert', updatedAt: serverTimestamp() }),
     )
     await assertFails(
-      updateDoc(claimRef(db, 'w1_tom'), { claimedBy: 'mamie', updatedAt: serverTimestamp() }),
+      updateDoc(claimRef(tom, 'w1_tom'), { claimedBy: 'mamie', updatedAt: serverTimestamp() }),
     )
-    await assertSucceeds(deleteDoc(claimRef(db, 'w1_tom')))
+    await assertSucceeds(deleteDoc(claimRef(tom, 'w1_tom')))
   })
 
-  it('le souhait ne contient toujours aucune réservation ; « Modifié » horodaté', async () => {
+  it('les participants lisent les réservations des autres listes (E1, E4)', async () => {
     await seedWish()
-    const ref = doc(asDevice('bob'), ...eventPath, 'wishes', 'w1')
-    await assertSucceeds(
-      updateDoc(ref, {
-        title: 'Un autre livre',
-        contentUpdatedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }),
-    )
-    await assertFails(
-      updateDoc(ref, { contentUpdatedAt: new Date(2000, 0, 1), updatedAt: serverTimestamp() }),
-    )
+    const tom = await asMember('tom')
+    await assertSucceeds(setDoc(claimRef(tom, 'w1_tom'), claim('tom')))
+    const claims = (db: Firestore) => collection(db, ...eventPath, 'claims')
+    await assertSucceeds(getDocs(query(claims(tom), where('claimedBy', '==', 'tom'))))
+    const mamie = await asMember('mamie')
+    await assertSucceeds(getDocs(query(claims(mamie), where('beneficiaryId', '==', 'lea'))))
+    await assertSucceeds(getDoc(claimRef(mamie, 'w1_tom')))
   })
 
-  it('lit les réservations par bénéficiaire ou par réservant (E1, E4)', async () => {
+  it("l'appareil de Léa ne lit jamais les réservations de sa liste (E5, niveau 2)", async () => {
     await seedWish()
-    const db = asDevice('bob')
-    const claims = collection(db, ...eventPath, 'claims')
-    await assertSucceeds(getDocs(query(claims, where('beneficiaryId', '==', 'lea'))))
-    await assertSucceeds(getDocs(query(claims, where('claimedBy', '==', 'tom'))))
+    await assertSucceeds(setDoc(claimRef(await asMember('tom'), 'w1_tom'), claim('tom')))
+    const lea = await asMember('lea')
+    const claims = collection(lea, ...eventPath, 'claims')
+    await assertFails(getDocs(query(claims, where('beneficiaryId', '==', 'lea'))))
+    await assertFails(getDocs(claims))
+    await assertFails(getDoc(claimRef(lea, 'w1_tom')))
+    // Un appareil sans session ne lit rien non plus.
+    await assertFails(getDoc(claimRef(asDevice('sans-session'), 'w1_tom')))
   })
 })

@@ -48,6 +48,26 @@ service cloud.firestore {
         return existsAfter(/databases/$(database)/documents/groups/$(code));
       }
 
+      // ── Niveau 2 de confidentialité (lot 6) ──────────────────────────────
+      // Chaque appareil (uid anonyme) déclare le membre qu'il incarne dans
+      // `sessions/{uid}`. `me()` échoue (donc refuse) si l'appareil n'a pas de session.
+      // Limite assumée : changer d'identité (« Ce n'est pas moi ») met à jour la session.
+      function me() {
+        return get(/databases/$(database)/documents/groups/$(code)/sessions/$(request.auth.uid)).data.memberId;
+      }
+
+      match /sessions/{uid} {
+        allow get: if signedIn() && request.auth.uid == uid;
+        allow list: if false;
+        allow create, update: if signedIn()
+          && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['memberId', 'updatedAt'])
+          && request.resource.data.memberId is string
+          && exists(/databases/$(database)/documents/groups/$(code)/members/$(request.resource.data.memberId))
+          && request.resource.data.updatedAt == request.time;
+        allow delete: if signedIn() && request.auth.uid == uid;
+      }
+
       // ── Membres (A3, B1, B2) ─────────────────────────────────────────────
       match /members/{memberId} {
         function validMember(data) {
@@ -101,8 +121,8 @@ service cloud.firestore {
           && changedKeys().hasOnly(['title', 'type', 'date', 'beneficiaryIds', 'participantIds',
                                     'archived'])
           && validEvent(request.resource.data);
-        // Niveau 1 (confiance familiale) : l'interface réserve la suppression au créateur.
-        allow delete: if signedIn();
+        // Seul le créateur supprime (C3).
+        allow delete: if signedIn() && resource.data.createdBy == me();
 
         // ── Souhaits (D1 à D4) ───────────────────────────────────────────
         // Un souhait ne contient JAMAIS d'information de réservation (voir `claims`).
@@ -135,8 +155,11 @@ service cloud.firestore {
             && request.resource.data.deleted == false
             && request.resource.data.createdAt == request.time
             && request.resource.data.updatedAt == request.time
-            && request.resource.data.beneficiaryId in event().beneficiaryIds;
+            && request.resource.data.beneficiaryId in event().beneficiaryIds
+            // Seul le bénéficiaire écrit sur sa liste.
+            && request.resource.data.beneficiaryId == me();
           allow update: if signedIn()
+            && resource.data.beneficiaryId == me()
             && changedKeys().hasOnly(['title', 'url', 'description', 'priceEstimate',
                                       'priority', 'deleted', 'updatedAt', 'contentUpdatedAt'])
             && (!('contentUpdatedAt' in changedKeys())
@@ -150,9 +173,8 @@ service cloud.firestore {
         // ── Réservations (E1 à E5) ───────────────────────────────────────
         // Stockées à part des souhaits ; identifiant `{wishId}_{memberId}` : une réservation
         // par personne et par souhait, plusieurs personnes possibles sur un même souhait.
-        // Niveau 1 (confiance familiale) : rien ne lie un appareil à un membre, donc
-        // « seul le réservant annule » est garanti par l'interface ; le niveau 2 (lot 6)
-        // le fera respecter ici via `sessions/{uid}`.
+        // Niveau 2 : l'appareil du bénéficiaire ne peut pas lire les réservations de sa liste,
+        // et seul le réservant crée, modifie ou annule sa réservation.
         match /claims/{claimId} {
           function event() {
             return get(/databases/$(database)/documents/groups/$(code)/events/$(eventId)).data;
@@ -162,8 +184,12 @@ service cloud.firestore {
             return get(/databases/$(database)/documents/groups/$(code)/events/$(eventId)/wishes/$(wishId)).data;
           }
 
-          allow read: if signedIn();
+          // Deux formes que les requêtes peuvent prouver : « mes réservations »
+          // (claimedBy == moi) ou « la liste d'un autre » (beneficiaryId != moi).
+          allow read: if signedIn()
+            && (resource.data.claimedBy == me() || resource.data.beneficiaryId != me());
           allow create: if signedIn()
+            && request.resource.data.claimedBy == me()
             && request.resource.data.keys().hasOnly(['wishId', 'beneficiaryId', 'claimedBy',
                                                      'status', 'claimedAt', 'updatedAt'])
             && request.resource.data.keys().hasAll(['wishId', 'beneficiaryId', 'claimedBy',
@@ -181,10 +207,11 @@ service cloud.firestore {
             && request.resource.data.claimedBy != request.resource.data.beneficiaryId
             && request.resource.data.claimedBy in event().participantIds;
           allow update: if signedIn()
+            && resource.data.claimedBy == me()
             && changedKeys().hasOnly(['status', 'updatedAt'])
             && request.resource.data.status in ['reserved', 'purchased']
             && request.resource.data.updatedAt == request.time;
-          allow delete: if signedIn();
+          allow delete: if signedIn() && resource.data.claimedBy == me();
         }
       }
     }

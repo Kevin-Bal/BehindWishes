@@ -6,6 +6,7 @@ import { formatCode, isValidCode, normalizeCode } from '../../lib/code'
 import { GroupContext, type GroupContextValue } from '../../lib/groupContext'
 import { useGroupDoc, useMembers } from '../../lib/groups'
 import { getIdentity, rememberGroup, setIdentity } from '../../lib/identity'
+import { bindDevice } from '../../lib/session'
 
 /**
  * Racine des routes `/g/:code/*` : vérifie le code, écoute le groupe et ses membres
@@ -58,6 +59,25 @@ function GroupData({ code, basePath }: { code: string; basePath: string }) {
     return { code, group: group.data, members: members.data, me, chooseIdentity, basePath }
   }, [group, members, identityId, code, chooseIdentity, basePath])
 
+  // Niveau 2 : l'appareil est lié au membre choisi avant d'afficher ses écrans.
+  const meId = value?.me?.id
+  const [boundTo, setBoundTo] = useState<string | null>(null)
+  const [bindFailed, setBindFailed] = useState(false)
+  useEffect(() => {
+    if (!meId) return
+    let cancelled = false
+    bindDevice(code, meId)
+      .then(() => {
+        if (!cancelled) setBoundTo(meId)
+      })
+      .catch(() => {
+        if (!cancelled) setBindFailed(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [code, meId])
+
   // Groupe trouvé : l'accueil proposera d'y revenir directement.
   const found = group.status === 'ready' && group.data !== null
   useEffect(() => {
@@ -76,6 +96,16 @@ function GroupData({ code, basePath }: { code: string; basePath: string }) {
 
   const onWhoPage = location.pathname === `${basePath}/qui`
   if (!value.me && !onWhoPage) return <Navigate to={`${basePath}/qui`} replace />
+  if (value.me && boundTo !== value.me.id && !onWhoPage) {
+    if (bindFailed) {
+      return (
+        <StateMessage title="Impossible d’ouvrir ton profil">
+          <p className="text-ink-muted">Vérifie ta connexion internet puis recharge la page.</p>
+        </StateMessage>
+      )
+    }
+    return <StateMessage title="Ouverture de ton profil…" busy />
+  }
 
   return (
     <GroupContext value={value}>

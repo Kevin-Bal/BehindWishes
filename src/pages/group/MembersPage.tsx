@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { InviteCard } from '../../components/InviteCard'
 import { MemberSheet } from '../../components/MemberSheet'
 import { GlassButton } from '../../components/glass'
@@ -14,7 +15,7 @@ type SheetState = { mode: 'closed' } | { mode: 'add' } | { mode: 'edit'; member:
 
 /** Gestion des membres (B1, B2) : ajouter, renommer, couleur/emoji, archiver. */
 export function MembersPage() {
-  const { code, group, members, me } = useMe()
+  const { code, group, members, me, basePath } = useMe()
   const [sheet, setSheet] = useState<SheetState>({ mode: 'closed' })
   const [showArchived, setShowArchived] = useState(false)
 
@@ -80,6 +81,16 @@ export function MembersPage() {
       )}
 
       <InviteCard code={code} groupName={group.name} />
+
+      <Link
+        to={`${basePath}/reglages`}
+        className="flex min-h-14 items-center justify-between rounded-[20px] border border-line bg-surface px-4 font-semibold"
+      >
+        Affichage et accessibilité
+        <span aria-hidden="true" className="text-2xl text-ink-muted">
+          ›
+        </span>
+      </Link>
 
       <MemberSheet
         open={sheet.mode !== 'closed'}

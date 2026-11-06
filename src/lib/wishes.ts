@@ -1,17 +1,17 @@
 import {
-  addDoc,
   collection,
   deleteField,
   doc,
   onSnapshot,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
   type DocumentSnapshot,
 } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
-import { getFirebase } from './firebase'
+import { getFirebase, queued } from './firebase'
 import type { Loadable } from './groups'
 import { compareWishes, type Priority } from './wishFormat'
 
@@ -57,14 +57,16 @@ export async function addWish(
   beneficiaryId: string,
   draft: WishDraft,
 ) {
-  await addDoc(wishesRef(code, eventId), {
-    beneficiaryId,
-    title: draft.title.trim(),
-    ...optionalFields(draft),
-    deleted: false,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  })
+  await queued(
+    setDoc(doc(wishesRef(code, eventId)), {
+      beneficiaryId,
+      title: draft.title.trim(),
+      ...optionalFields(draft),
+      deleted: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  )
 }
 
 export async function updateWish(code: string, eventId: string, previous: Wish, draft: WishDraft) {
@@ -72,15 +74,17 @@ export async function updateWish(code: string, eventId: string, previous: Wish, 
   // Titre ou lien changé : le réservant verra « Modifié » (cas limite de la spec).
   const contentChanged =
     draft.title.trim() !== previous.title || (optional.url ?? '') !== (previous.url ?? '')
-  await updateDoc(doc(wishesRef(code, eventId), previous.id), {
-    ...(contentChanged ? { contentUpdatedAt: serverTimestamp() } : {}),
-    title: draft.title.trim(),
-    url: optional.url ?? deleteField(),
-    description: optional.description ?? deleteField(),
-    priceEstimate: optional.priceEstimate ?? deleteField(),
-    priority: optional.priority ?? deleteField(),
-    updatedAt: serverTimestamp(),
-  })
+  await queued(
+    updateDoc(doc(wishesRef(code, eventId), previous.id), {
+      ...(contentChanged ? { contentUpdatedAt: serverTimestamp() } : {}),
+      title: draft.title.trim(),
+      url: optional.url ?? deleteField(),
+      description: optional.description ?? deleteField(),
+      priceEstimate: optional.priceEstimate ?? deleteField(),
+      priority: optional.priority ?? deleteField(),
+      updatedAt: serverTimestamp(),
+    }),
+  )
 }
 
 /**
@@ -88,10 +92,12 @@ export async function updateWish(code: string, eventId: string, previous: Wish, 
  * réservant pourra être prévenu (« Souhait supprimé », lot 4).
  */
 export async function deleteWish(code: string, eventId: string, wishId: string) {
-  await updateDoc(doc(wishesRef(code, eventId), wishId), {
-    deleted: true,
-    updatedAt: serverTimestamp(),
-  })
+  await queued(
+    updateDoc(doc(wishesRef(code, eventId), wishId), {
+      deleted: true,
+      updatedAt: serverTimestamp(),
+    }),
+  )
 }
 
 function fromSnapshot(snap: DocumentSnapshot): Wish {

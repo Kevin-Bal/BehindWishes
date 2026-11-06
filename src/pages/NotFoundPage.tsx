@@ -8,7 +8,7 @@ export function NotFoundPage() {
         <h1 className="text-xl font-semibold">Page introuvable</h1>
         <p className="text-ink-muted">Ce lien ne mène nulle part.</p>
         <Link to="/" className="font-semibold text-accent underline underline-offset-4">
-          Revenir à l'accueil
+          Revenir à l’accueil
         </Link>
       </Card>
     </main>

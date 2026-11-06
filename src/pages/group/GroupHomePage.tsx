@@ -8,6 +8,7 @@ import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { useMyEvents } from '../../lib/events'
 import { useMe } from '../../lib/groupContext'
+import { useEventTheme } from '../../lib/useEventTheme'
 import { GroupScreen } from './GroupScreen'
 
 /** Accueil du groupe : mes évènements, triés par date (C1). */
@@ -20,6 +21,8 @@ export function GroupHomePage() {
   const active = events.status === 'ready' ? events.data.filter((e) => !e.archived) : []
   const archived = events.status === 'ready' ? events.data.filter((e) => e.archived) : []
   const newEvent = () => navigate(`${basePath}/e/nouveau`)
+  // Le premier évènement actif est le prochain (tri par date) : il donne l'ambiance.
+  useEventTheme(active[0]?.type)
 
   return (
     <GroupScreen

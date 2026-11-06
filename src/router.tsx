@@ -6,6 +6,8 @@ import { NotFoundPage } from './pages/NotFoundPage'
 import { EventFormPage } from './pages/group/EventFormPage'
 import { EventPage } from './pages/group/EventPage'
 import { ListPage } from './pages/group/ListPage'
+import { SettingsPage } from './pages/group/SettingsPage'
+import { RouteError } from './pages/RouteError'
 import { GroupHomePage } from './pages/group/GroupHomePage'
 import { GroupLayout } from './pages/group/GroupLayout'
 import { MembersPage } from './pages/group/MembersPage'
@@ -17,11 +19,12 @@ import { WhoPage } from './pages/group/WhoPage'
  * les routes côté serveur. Routes cibles : voir docs/SPEC.md, section UX / UI.
  */
 export const router = createHashRouter([
-  { path: '/', element: <HomePage /> },
+  { path: '/', element: <HomePage />, errorElement: <RouteError /> },
   { path: '/nouveau', element: <CreateGroupPage /> },
   {
     path: '/g/:code',
     element: <GroupLayout />,
+    errorElement: <RouteError />,
     children: [
       { index: true, element: <GroupHomePage /> },
       { path: 'qui', element: <WhoPage /> },
@@ -31,6 +34,7 @@ export const router = createHashRouter([
       { path: 'e/:eventId/l/:memberId', element: <ListPage /> },
       { path: 'membres', element: <MembersPage /> },
       { path: 'reservations', element: <ReservationsPage /> },
+      { path: 'reglages', element: <SettingsPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

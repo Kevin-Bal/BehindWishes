@@ -4,16 +4,16 @@ import {
   getDoc,
   onSnapshot,
   serverTimestamp,
+  setDoc,
   updateDoc,
   writeBatch,
-  addDoc,
   deleteField,
   type FirestoreError,
 } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { defaultAppearance } from './appearance'
 import { generateCode } from './code'
-import { getFirebase } from './firebase'
+import { getFirebase, queued } from './firebase'
 
 /** Limites partagées avec firestore.rules. */
 export const LIMITS = {
@@ -76,13 +76,16 @@ export async function addMember(
   code: string,
   input: { name: string; color: string; emoji?: string },
 ): Promise<string> {
-  const ref = await addDoc(membersRef(code), {
-    name: input.name.trim(),
-    color: input.color,
-    ...(input.emoji ? { emoji: input.emoji } : {}),
-    archived: false,
-    createdAt: serverTimestamp(),
-  })
+  const ref = doc(membersRef(code))
+  await queued(
+    setDoc(ref, {
+      name: input.name.trim(),
+      color: input.color,
+      ...(input.emoji ? { emoji: input.emoji } : {}),
+      archived: false,
+      createdAt: serverTimestamp(),
+    }),
+  )
   return ref.id
 }
 
@@ -95,7 +98,7 @@ export async function updateMember(
   if (typeof changes.name === 'string') data.name = changes.name.trim()
   // `emoji: undefined` explicite = retirer l'emoji (on revient à l'initiale).
   if ('emoji' in changes && !changes.emoji) data.emoji = deleteField()
-  await updateDoc(doc(membersRef(code), memberId), data)
+  await queued(updateDoc(doc(membersRef(code), memberId), data))
 }
 
 const byName = new Intl.Collator('fr-FR', { sensitivity: 'base' })

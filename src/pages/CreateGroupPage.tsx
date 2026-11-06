@@ -66,7 +66,7 @@ export function CreateGroupPage() {
   const back = (
     <Link
       to="/"
-      aria-label="Retour à l'accueil"
+      aria-label="Retour à l’accueil"
       className="-ml-2 flex size-11 items-center justify-center rounded-full"
     >
       <ChevronLeftIcon className="size-6" />

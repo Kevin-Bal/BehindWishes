@@ -62,6 +62,20 @@
   }
 }
 
+/* Contraste élevé demandé par le système : textes secondaires et bordures renforcés */
+@media (prefers-contrast: more) {
+  :root {
+    --ink-muted: #2e2e36;
+    --line: rgba(29, 29, 34, 0.45);
+  }
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+  :root {
+    --ink-muted: #dedde6;
+    --line: rgba(255, 255, 255, 0.5);
+  }
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);

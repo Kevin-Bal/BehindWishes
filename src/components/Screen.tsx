@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { GlassBar, GlassTabBar, type TabItem } from './glass'
 import { cn } from '../lib/cn'
 
@@ -18,6 +18,13 @@ interface ScreenProps {
  * barre d'onglets et bouton flottant facultatifs (3 éléments de verre au plus).
  */
 export function Screen({ title, leading, identity, tabs, fab, children, className }: ScreenProps) {
+  useEffect(() => {
+    document.title = `${title} · Derrière la liste`
+    return () => {
+      document.title = 'Derrière la liste'
+    }
+  }, [title])
+
   return (
     <>
       <GlassBar title={title} leading={leading} identity={identity} />

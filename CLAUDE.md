@@ -26,6 +26,8 @@ Web app mobile-first de listes de souhaits partagées (famille, amis), où chacu
 - Textes d'interface en français, tutoiement, vocabulaire du quotidien ; dates en `fr-FR`.
 - Petits commits, un lot ou une story à la fois, message qui cite la story (`feat(A1): …`).
 - Accessibilité : cibles tactiles ≥ 44 px, contraste AA, statut jamais indiqué par la couleur seule.
+- Hors ligne : Firestore a un cache local persistant ; toute écriture passe par `queued()` (`src/lib/firebase.ts`) pour ne pas bloquer l'interface sans réseau. Créer les documents avec `doc(collection)` + `setDoc` (l'id est connu hors ligne), pas `addDoc`.
+- Règles Firestore : après modification, `npm run deploy:rules` ; les tests (`npm run test:rules`) tournent en CI (Java requis en local).
 
 ## Confidentialité de la surprise (non négociable)
 

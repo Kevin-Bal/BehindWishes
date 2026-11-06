@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import type { WishStatus } from '../components/ui/StatusChip'
-import { getFirebase } from './firebase'
+import { getFirebase, queued } from './firebase'
 import type { Loadable } from './groups'
 import type { Wish } from './wishes'
 
@@ -40,14 +40,16 @@ export const claimId = (wishId: string, memberId: string) => `${wishId}_${member
 /** Je prends ce souhait (E2). Plusieurs personnes peuvent prendre le même. */
 export async function reserveWish(code: string, eventId: string, wish: Wish, meId: string) {
   if (wish.beneficiaryId === meId) throw new Error('On ne réserve pas sur sa propre liste.')
-  await setDoc(doc(claimsRef(code, eventId), claimId(wish.id, meId)), {
-    wishId: wish.id,
-    beneficiaryId: wish.beneficiaryId,
-    claimedBy: meId,
-    status: 'reserved',
-    claimedAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  })
+  await queued(
+    setDoc(doc(claimsRef(code, eventId), claimId(wish.id, meId)), {
+      wishId: wish.id,
+      beneficiaryId: wish.beneficiaryId,
+      claimedBy: meId,
+      status: 'reserved',
+      claimedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  )
 }
 
 /** Réservé ↔ Acheté (E3). */
@@ -57,12 +59,14 @@ export async function setClaimStatus(
   id: string,
   status: ClaimStatus,
 ) {
-  await updateDoc(doc(claimsRef(code, eventId), id), { status, updatedAt: serverTimestamp() })
+  await queued(
+    updateDoc(doc(claimsRef(code, eventId), id), { status, updatedAt: serverTimestamp() }),
+  )
 }
 
 /** Annuler ma réservation (E3), ou la libérer si le souhait a été supprimé. */
 export async function cancelClaim(code: string, eventId: string, id: string) {
-  await deleteDoc(doc(claimsRef(code, eventId), id))
+  await queued(deleteDoc(doc(claimsRef(code, eventId), id)))
 }
 
 function fromSnapshot(snap: DocumentSnapshot): Claim {

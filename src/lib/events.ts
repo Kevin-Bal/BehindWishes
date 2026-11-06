@@ -1,11 +1,11 @@
 import {
-  addDoc,
   collection,
   deleteDoc,
   doc,
   onSnapshot,
   query,
   serverTimestamp,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -13,7 +13,7 @@ import {
 } from 'firebase/firestore'
 import { useEffect, useState } from 'react'
 import { compareEventDates } from './dates'
-import { getFirebase } from './firebase'
+import { getFirebase, queued } from './firebase'
 import type { Loadable, Member } from './groups'
 
 /** Limites partagées avec firestore.rules. */
@@ -95,25 +95,28 @@ function toPayload(draft: EventDraft) {
 }
 
 export async function createEvent(code: string, draft: EventDraft, createdBy: string) {
-  const ref = await addDoc(eventsRef(code), {
-    ...toPayload(draft),
-    archived: false,
-    createdBy,
-    createdAt: serverTimestamp(),
-  })
+  const ref = doc(eventsRef(code))
+  await queued(
+    setDoc(ref, {
+      ...toPayload(draft),
+      archived: false,
+      createdBy,
+      createdAt: serverTimestamp(),
+    }),
+  )
   return ref.id
 }
 
 export async function updateEvent(code: string, eventId: string, draft: EventDraft) {
-  await updateDoc(doc(eventsRef(code), eventId), toPayload(draft))
+  await queued(updateDoc(doc(eventsRef(code), eventId), toPayload(draft)))
 }
 
 export async function setEventArchived(code: string, eventId: string, archived: boolean) {
-  await updateDoc(doc(eventsRef(code), eventId), { archived })
+  await queued(updateDoc(doc(eventsRef(code), eventId), { archived }))
 }
 
 export async function deleteEvent(code: string, eventId: string) {
-  await deleteDoc(doc(eventsRef(code), eventId))
+  await queued(deleteDoc(doc(eventsRef(code), eventId)))
 }
 
 function fromSnapshot(snap: DocumentSnapshot): GroupEvent {

@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router/dom'
+import { OfflineBanner } from './components/OfflineBanner'
 import { AuthProvider } from './lib/auth'
 import { applyTransparency } from './lib/preferences'
 import { router } from './router'
@@ -15,6 +16,7 @@ createRoot(root).render(
   <StrictMode>
     <AuthProvider>
       <RouterProvider router={router} />
+      <OfflineBanner />
     </AuthProvider>
   </StrictMode>,
 )

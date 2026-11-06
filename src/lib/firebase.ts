@@ -1,6 +1,12 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore, type Firestore } from 'firebase/firestore'
+import {
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from 'firebase/firestore'
 
 const env = import.meta.env
 
@@ -39,7 +45,11 @@ export function getFirebase(): FirebaseServices {
   })
   const auth = getAuth(app)
   auth.languageCode = 'fr'
-  const db = getFirestore(app)
+  // Cache local persistant : les listes déjà vues restent lisibles hors ligne,
+  // et les écritures partent dès le retour du réseau.
+  const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+  })
 
   if (usingEmulators) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
@@ -48,4 +58,17 @@ export function getFirebase(): FirebaseServices {
 
   services = { app, auth, db }
   return services
+}
+
+/**
+ * Hors ligne, Firestore applique l'écriture localement tout de suite mais ne confirme
+ * qu'au retour du réseau : on n'attend pas cette confirmation, sinon l'interface
+ * resterait bloquée sur « Enregistrement… ».
+ */
+export async function queued(write: Promise<unknown>): Promise<void> {
+  if (typeof navigator === 'undefined' || navigator.onLine) {
+    await write
+    return
+  }
+  write.catch((error: unknown) => console.error('Écriture refusée au retour du réseau', error))
 }

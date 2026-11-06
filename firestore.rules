@@ -112,7 +112,8 @@ service cloud.firestore {
                                        'updatedAt'])
               && data.keys().hasOnly(['beneficiaryId', 'title', 'url', 'description',
                                       'priceEstimate', 'priority', 'deleted', 'createdAt',
-                                      'updatedAt'])
+                                      'updatedAt', 'contentUpdatedAt'])
+              && (!('contentUpdatedAt' in data) || data.contentUpdatedAt is timestamp)
               && isString(data.title, 1, 120)
               && (!('url' in data) || (isString(data.url, 1, 500)
                                        && data.url.matches('^https?://.+')))
@@ -137,11 +138,53 @@ service cloud.firestore {
             && request.resource.data.beneficiaryId in event().beneficiaryIds;
           allow update: if signedIn()
             && changedKeys().hasOnly(['title', 'url', 'description', 'priceEstimate',
-                                      'priority', 'deleted', 'updatedAt'])
+                                      'priority', 'deleted', 'updatedAt', 'contentUpdatedAt'])
+            && (!('contentUpdatedAt' in changedKeys())
+                || request.resource.data.contentUpdatedAt == request.time)
             && request.resource.data.updatedAt == request.time
             && validWish(request.resource.data);
           // Suppression logique uniquement (`deleted = true`) : le réservant doit être prévenu.
           allow delete: if false;
+        }
+
+        // ── Réservations (E1 à E5) ───────────────────────────────────────
+        // Stockées à part des souhaits ; identifiant `{wishId}_{memberId}` : une réservation
+        // par personne et par souhait, plusieurs personnes possibles sur un même souhait.
+        // Niveau 1 (confiance familiale) : rien ne lie un appareil à un membre, donc
+        // « seul le réservant annule » est garanti par l'interface ; le niveau 2 (lot 6)
+        // le fera respecter ici via `sessions/{uid}`.
+        match /claims/{claimId} {
+          function event() {
+            return get(/databases/$(database)/documents/groups/$(code)/events/$(eventId)).data;
+          }
+
+          function wish(wishId) {
+            return get(/databases/$(database)/documents/groups/$(code)/events/$(eventId)/wishes/$(wishId)).data;
+          }
+
+          allow read: if signedIn();
+          allow create: if signedIn()
+            && request.resource.data.keys().hasOnly(['wishId', 'beneficiaryId', 'claimedBy',
+                                                     'status', 'claimedAt', 'updatedAt'])
+            && request.resource.data.keys().hasAll(['wishId', 'beneficiaryId', 'claimedBy',
+                                                    'status', 'claimedAt', 'updatedAt'])
+            && request.resource.data.wishId is string
+            && request.resource.data.claimedBy is string
+            && claimId == request.resource.data.wishId + '_' + request.resource.data.claimedBy
+            && request.resource.data.status == 'reserved'
+            && request.resource.data.claimedAt == request.time
+            && request.resource.data.updatedAt == request.time
+            // `beneficiaryId` dénormalisé, cohérent avec le souhait (sert aux requêtes).
+            && request.resource.data.beneficiaryId == wish(request.resource.data.wishId).beneficiaryId
+            && wish(request.resource.data.wishId).deleted == false
+            // Jamais sur sa propre liste, et seulement par un participant de l'évènement.
+            && request.resource.data.claimedBy != request.resource.data.beneficiaryId
+            && request.resource.data.claimedBy in event().participantIds;
+          allow update: if signedIn()
+            && changedKeys().hasOnly(['status', 'updatedAt'])
+            && request.resource.data.status in ['reserved', 'purchased']
+            && request.resource.data.updatedAt == request.time;
+          allow delete: if signedIn();
         }
       }
     }

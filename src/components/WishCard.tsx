@@ -5,16 +5,19 @@ import { Stars } from './Stars'
 import { Card } from './ui/Card'
 
 /**
- * Carte opaque d'un souhait. Sur ma liste, toute la carte ouvre la modification ;
- * le lien reste une cible distincte, ouverte dans un nouvel onglet.
+ * Carte opaque d'un souhait. Toute la carte ouvre une action (modifier sur ma liste,
+ * détail des réservations sur celle d'un autre) ; le lien reste une cible distincte,
+ * ouverte dans un nouvel onglet.
  */
 export function WishCard({
   wish,
-  onEdit,
+  onOpen,
+  openLabel = 'Modifier',
   footer,
 }: {
   wish: Wish
-  onEdit?: () => void
+  onOpen?: () => void
+  openLabel?: string
   footer?: ReactNode
 }) {
   const body = (
@@ -35,10 +38,10 @@ export function WishCard({
 
   return (
     <Card className="flex flex-col gap-2">
-      {onEdit ? (
-        <button type="button" onClick={onEdit} className="-m-1 rounded-2xl p-1 text-left">
+      {onOpen ? (
+        <button type="button" onClick={onOpen} className="-m-1 rounded-2xl p-1 text-left">
           {body}
-          <span className="sr-only">Modifier</span>
+          <span className="sr-only">{openLabel}</span>
         </button>
       ) : (
         <div>{body}</div>

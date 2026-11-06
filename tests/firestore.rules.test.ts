@@ -344,3 +344,120 @@ describe('wishes', () => {
     await assertSucceeds(getDocs(query(collection(db, ...wishPath), where('deleted', '==', false))))
   })
 })
+
+describe('claims', () => {
+  const eventPath = ['groups', CODE, 'events', 'noel'] as const
+
+  /** Évènement : Léa et Tom bénéficiaires, Léa, Tom et Mamie participants ; un souhait de Léa. */
+  async function seedWish({ deleted = false } = {}) {
+    await seedGroup()
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore() as unknown as Firestore
+      await setDoc(doc(db, ...eventPath), {
+        title: 'Noël',
+        type: 'noel',
+        date: null,
+        beneficiaryIds: ['lea', 'tom'],
+        participantIds: ['lea', 'tom', 'mamie'],
+        archived: false,
+        createdBy: 'lea',
+        createdAt: new Date(),
+      })
+      await setDoc(doc(db, ...eventPath, 'wishes', 'w1'), {
+        beneficiaryId: 'lea',
+        title: 'Un livre',
+        deleted,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+    })
+  }
+
+  const claim = (claimedBy: string, overrides: Record<string, unknown> = {}) => ({
+    wishId: 'w1',
+    beneficiaryId: 'lea',
+    claimedBy,
+    status: 'reserved',
+    claimedAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  const claimRef = (db: Firestore, id: string) => doc(db, ...eventPath, 'claims', id)
+
+  it('plusieurs participants réservent le même souhait (E2)', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
+    await assertSucceeds(setDoc(claimRef(db, 'w1_mamie'), claim('mamie')))
+  })
+
+  it('une seule réservation par personne et par souhait', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
+    // Recréer = écraser un document existant : refusé.
+    await assertFails(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
+    // Identifiant incohérent avec le contenu : refusé.
+    await assertFails(setDoc(claimRef(db, 'autre_id'), claim('mamie')))
+  })
+
+  it('jamais sur sa propre liste, seulement par un participant (règle 4)', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    await assertFails(setDoc(claimRef(db, 'w1_lea'), claim('lea')))
+    await assertFails(setDoc(claimRef(db, 'w1_inconnu'), claim('inconnu')))
+  })
+
+  it('bénéficiaire cohérent avec le souhait, souhait non supprimé', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { beneficiaryId: 'tom' })))
+    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { status: 'purchased' })))
+    await assertFails(setDoc(claimRef(db, 'w1_mamie'), claim('mamie', { note: 'x' })))
+  })
+
+  it('refuse de réserver un souhait supprimé', async () => {
+    await seedWish({ deleted: true })
+    await assertFails(setDoc(claimRef(asDevice('bob'), 'w1_tom'), claim('tom')))
+  })
+
+  it('passe à Acheté puis annule (E3)', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    await assertSucceeds(setDoc(claimRef(db, 'w1_tom'), claim('tom')))
+    await assertSucceeds(
+      updateDoc(claimRef(db, 'w1_tom'), { status: 'purchased', updatedAt: serverTimestamp() }),
+    )
+    await assertFails(
+      updateDoc(claimRef(db, 'w1_tom'), { status: 'offert', updatedAt: serverTimestamp() }),
+    )
+    await assertFails(
+      updateDoc(claimRef(db, 'w1_tom'), { claimedBy: 'mamie', updatedAt: serverTimestamp() }),
+    )
+    await assertSucceeds(deleteDoc(claimRef(db, 'w1_tom')))
+  })
+
+  it('le souhait ne contient toujours aucune réservation ; « Modifié » horodaté', async () => {
+    await seedWish()
+    const ref = doc(asDevice('bob'), ...eventPath, 'wishes', 'w1')
+    await assertSucceeds(
+      updateDoc(ref, {
+        title: 'Un autre livre',
+        contentUpdatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(
+      updateDoc(ref, { contentUpdatedAt: new Date(2000, 0, 1), updatedAt: serverTimestamp() }),
+    )
+  })
+
+  it('lit les réservations par bénéficiaire ou par réservant (E1, E4)', async () => {
+    await seedWish()
+    const db = asDevice('bob')
+    const claims = collection(db, ...eventPath, 'claims')
+    await assertSucceeds(getDocs(query(claims, where('beneficiaryId', '==', 'lea'))))
+    await assertSucceeds(getDocs(query(claims, where('claimedBy', '==', 'tom'))))
+  })
+})

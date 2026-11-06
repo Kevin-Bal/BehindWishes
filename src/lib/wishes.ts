@@ -25,6 +25,9 @@ export interface Wish {
   priority?: Priority
   createdAt: Date
   updatedAt: Date
+  /** Dernière modification du titre ou du lien : sert à l'étiquette « Modifié » (réservant). */
+  contentUpdatedAt?: Date
+  deleted: boolean
 }
 
 export interface WishDraft {
@@ -64,9 +67,13 @@ export async function addWish(
   })
 }
 
-export async function updateWish(code: string, eventId: string, wishId: string, draft: WishDraft) {
+export async function updateWish(code: string, eventId: string, previous: Wish, draft: WishDraft) {
   const optional = optionalFields(draft)
-  await updateDoc(doc(wishesRef(code, eventId), wishId), {
+  // Titre ou lien changé : le réservant verra « Modifié » (cas limite de la spec).
+  const contentChanged =
+    draft.title.trim() !== previous.title || (optional.url ?? '') !== (previous.url ?? '')
+  await updateDoc(doc(wishesRef(code, eventId), previous.id), {
+    ...(contentChanged ? { contentUpdatedAt: serverTimestamp() } : {}),
     title: draft.title.trim(),
     url: optional.url ?? deleteField(),
     description: optional.description ?? deleteField(),
@@ -104,19 +111,30 @@ function fromSnapshot(snap: DocumentSnapshot): Wish {
     ...(priority === 1 || priority === 2 || priority === 3 ? { priority } : {}),
     createdAt,
     updatedAt: snap.get('updatedAt', opts)?.toDate?.() ?? createdAt,
+    ...(snap.get('contentUpdatedAt')
+      ? { contentUpdatedAt: snap.get('contentUpdatedAt', opts).toDate() as Date }
+      : {}),
+    deleted: snap.get('deleted') === true,
   }
 }
 
 /**
  * Souhaits visibles d'un évènement (non supprimés), triés (D4).
  * Le regroupement par bénéficiaire se fait côté client.
+ * `includeDeleted` : pour « Mes réservations », qui doit signaler un souhait supprimé.
  */
-export function useEventWishes(code: string, eventId: string): Loadable<Wish[]> {
+export function useEventWishes(
+  code: string,
+  eventId: string,
+  { includeDeleted = false }: { includeDeleted?: boolean } = {},
+): Loadable<Wish[]> {
   const [state, setState] = useState<Loadable<Wish[]>>({ status: 'loading' })
   useEffect(
     () =>
       onSnapshot(
-        query(wishesRef(code, eventId), where('deleted', '==', false)),
+        includeDeleted
+          ? wishesRef(code, eventId)
+          : query(wishesRef(code, eventId), where('deleted', '==', false)),
         (snap) =>
           setState({
             status: 'ready',
@@ -124,7 +142,7 @@ export function useEventWishes(code: string, eventId: string): Loadable<Wish[]> 
           }),
         (error) => setState({ status: 'error', error }),
       ),
-    [code, eventId],
+    [code, eventId, includeDeleted],
   )
   return state
 }

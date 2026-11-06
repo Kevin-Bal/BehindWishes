@@ -1,4 +1,5 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app'
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth'
 import {
   connectFirestoreEmulator,
@@ -43,6 +44,21 @@ export function getFirebase(): FirebaseServices {
     messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: env.VITE_FIREBASE_APP_ID,
   })
+  // App Check (lot 6, facultatif) : prouve que les requêtes viennent de notre site.
+  // Activé seulement si une clé de site reCAPTCHA v3 est fournie au build.
+  if (env.VITE_APPCHECK_SITE_KEY && !usingEmulators) {
+    if (import.meta.env.DEV) {
+      // En local, un jeton de débogage s'affiche dans la console : à enregistrer
+      // dans la console Firebase (App Check › Applications › Gérer les jetons de débogage).
+      ;(
+        self as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean }
+      ).FIREBASE_APPCHECK_DEBUG_TOKEN = true
+    }
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(env.VITE_APPCHECK_SITE_KEY),
+      isTokenAutoRefreshEnabled: true,
+    })
+  }
   const auth = getAuth(app)
   auth.languageCode = 'fr'
   // Cache local persistant : les listes déjà vues restent lisibles hors ligne,

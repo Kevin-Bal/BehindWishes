@@ -43,6 +43,8 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.STORAGEBUCKET }}
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.MESSAGINGSENDERID }}
           VITE_FIREBASE_APP_ID: ${{ vars.APPID }}
+          # Facultatif : App Check (clé de site reCAPTCHA v3).
+          VITE_APPCHECK_SITE_KEY: ${{ vars.APPCHECKSITEKEY }}
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'

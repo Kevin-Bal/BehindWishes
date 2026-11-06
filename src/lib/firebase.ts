@@ -1,8 +1,9 @@
-import { initializeApp, type FirebaseApp } from 'firebase/app'
+import { getApps, initializeApp, type FirebaseApp } from 'firebase/app'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { connectAuthEmulator, getAuth, type Auth } from 'firebase/auth'
 import {
   connectFirestoreEmulator,
+  getFirestore,
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
@@ -34,6 +35,13 @@ export function getFirebase(): FirebaseServices {
   if (services) return services
   if (missingFirebaseEnv.length > 0) {
     throw new Error(`Configuration Firebase incomplète : ${missingFirebaseEnv.join(', ')}`)
+  }
+
+  // Rechargement à chaud (développement) : l'app Firebase existe déjà, on la réutilise.
+  const existing = getApps()[0]
+  if (existing) {
+    services = { app: existing, auth: getAuth(existing), db: getFirestore(existing) }
+    return services
   }
 
   const app = initializeApp({

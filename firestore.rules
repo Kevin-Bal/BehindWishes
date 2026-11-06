@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Règles Firestore — la sécurité de l'app repose entièrement sur ce fichier
+// (site statique, aucun serveur). Voir docs/SPEC.md, sections Confidentialité et Architecture.
+//
+// Lot 0 : tout est fermé, sauf un document de diagnostic par appareil.
+// Les règles `groups/**` arrivent au Lot 1, avec leurs tests dans l'émulateur.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Diagnostic du Lot 0 : chaque appareil (uid anonyme) lit et écrit son propre document.
+    match /healthchecks/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Tout le reste est refusé par défaut.
+  }
+}

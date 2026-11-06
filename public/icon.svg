@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Icône pleine (sans coins arrondis) : le système applique son propre masque. -->
+  <rect width="512" height="512" fill="#b8322a"/>
+  <g transform="translate(96 88)">
+    <rect x="16" y="128" width="288" height="200" rx="28" fill="#fff8ef"/>
+    <rect x="0" y="72" width="320" height="80" rx="24" fill="#fff8ef"/>
+    <rect x="136" y="72" width="48" height="256" fill="#2f6b4f"/>
+    <path d="M160 72c-32-64-104-72-104-28s72 28 104 28zm0 0c32-64 104-72 104-28s-72 28-104 28z"
+      fill="none" stroke="#fff8ef" stroke-width="22" stroke-linejoin="round"/>
+  </g>
+</svg>

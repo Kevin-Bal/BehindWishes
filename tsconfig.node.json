@@ -16,5 +16,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["vite.config.ts", "vitest.rules.config.ts", "tests"]
+  "include": [
+    "vite.config.ts",
+    "vitest.rules.config.ts",
+    "pwa-assets.config.ts",
+    "tests",
+    "worker/**/*.test.ts"
+  ]
 }

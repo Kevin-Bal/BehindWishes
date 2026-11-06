@@ -1,0 +1,8 @@
+# Proxy de saisie intelligente des liens (Cloudflare Workers, offre gratuite).
+# Déploiement : npm run deploy:worker  (après « npx wrangler login » une seule fois)
+name = "derriere-la-liste-liens"
+main = "index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGINS = "https://kevin-bal.github.io,http://localhost:5173"

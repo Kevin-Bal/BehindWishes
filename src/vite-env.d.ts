@@ -10,6 +10,8 @@ interface ImportMetaEnv {
   readonly VITE_USE_EMULATORS?: string
   /** Clé de site reCAPTCHA v3 pour App Check (facultatif). */
   readonly VITE_APPCHECK_SITE_KEY?: string
+  /** Adresse du proxy de saisie intelligente des liens (worker Cloudflare, facultatif). */
+  readonly VITE_LINK_PREVIEW_URL?: string
 }
 
 interface ImportMeta {

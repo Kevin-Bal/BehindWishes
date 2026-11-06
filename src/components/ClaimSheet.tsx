@@ -66,6 +66,17 @@ function ClaimDetail({
 
   return (
     <div className="flex flex-col gap-4">
+      {wish.imageUrl && (
+        <img
+          src={wish.imageUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          className="max-h-48 self-center rounded-2xl border border-line bg-white object-contain"
+          onError={(e) => {
+            e.currentTarget.hidden = true
+          }}
+        />
+      )}
       {wish.description && (
         <p className="whitespace-pre-line text-ink-muted break-words">{wish.description}</p>
       )}

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { formatPrice, urlDomain } from '../lib/wishFormat'
 import type { Wish } from '../lib/wishes'
 import { Stars } from './Stars'
@@ -20,20 +20,34 @@ export function WishCard({
   openLabel?: string
   footer?: ReactNode
 }) {
+  const [imageBroken, setImageBroken] = useState(false)
+  const showImage = wish.imageUrl && !imageBroken
   const body = (
-    <>
-      <div className="flex items-start gap-2">
-        <h3 className="min-w-0 flex-1 text-lg leading-snug font-semibold break-words">
-          {wish.title}
-        </h3>
-        {wish.priority && <Stars priority={wish.priority} className="mt-1 shrink-0" />}
-      </div>
-      {wish.description && (
-        <p className="mt-1 line-clamp-3 text-ink-muted break-words whitespace-pre-line">
-          {wish.description}
-        </p>
+    <div className="flex gap-3">
+      {showImage && (
+        <img
+          src={wish.imageUrl}
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setImageBroken(true)}
+          className="size-16 shrink-0 rounded-xl border border-line bg-white object-contain"
+        />
       )}
-    </>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-lg leading-snug font-semibold break-words">
+            {wish.title}
+          </h3>
+          {wish.priority && <Stars priority={wish.priority} className="mt-1 shrink-0" />}
+        </div>
+        {wish.description && (
+          <p className="mt-1 line-clamp-3 text-ink-muted break-words whitespace-pre-line">
+            {wish.description}
+          </p>
+        )}
+      </div>
+    </div>
   )
 
   return (

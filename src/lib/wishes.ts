@@ -23,6 +23,8 @@ export interface Wish {
   description?: string
   priceEstimate?: number
   priority?: Priority
+  /** Image du produit (https), trouvée par la saisie intelligente du lien. */
+  imageUrl?: string
   createdAt: Date
   updatedAt: Date
   /** Dernière modification du titre ou du lien : sert à l'étiquette « Modifié » (réservant). */
@@ -36,6 +38,7 @@ export interface WishDraft {
   description?: string
   priceEstimate?: number
   priority?: Priority
+  imageUrl?: string
 }
 
 const wishesRef = (code: string, eventId: string) =>
@@ -48,6 +51,7 @@ function optionalFields(draft: WishDraft) {
     ...(draft.description?.trim() ? { description: draft.description.trim() } : {}),
     ...(draft.priceEstimate !== undefined ? { priceEstimate: draft.priceEstimate } : {}),
     ...(draft.priority ? { priority: draft.priority } : {}),
+    ...(draft.imageUrl ? { imageUrl: draft.imageUrl } : {}),
   }
 }
 
@@ -82,6 +86,7 @@ export async function updateWish(code: string, eventId: string, previous: Wish, 
       description: optional.description ?? deleteField(),
       priceEstimate: optional.priceEstimate ?? deleteField(),
       priority: optional.priority ?? deleteField(),
+      imageUrl: optional.imageUrl ?? deleteField(),
       updatedAt: serverTimestamp(),
     }),
   )
@@ -115,6 +120,9 @@ function fromSnapshot(snap: DocumentSnapshot): Wish {
       ? { priceEstimate: snap.get('priceEstimate') as number }
       : {}),
     ...(priority === 1 || priority === 2 || priority === 3 ? { priority } : {}),
+    ...(typeof snap.get('imageUrl') === 'string'
+      ? { imageUrl: snap.get('imageUrl') as string }
+      : {}),
     createdAt,
     updatedAt: snap.get('updatedAt', opts)?.toDate?.() ?? createdAt,
     ...(snap.get('contentUpdatedAt')

@@ -5,6 +5,7 @@ export const WISH_LIMITS = {
   description: 500,
   url: 500,
   maxPrice: 100_000,
+  imageUrl: 1000,
 } as const
 
 export type Priority = 1 | 2 | 3

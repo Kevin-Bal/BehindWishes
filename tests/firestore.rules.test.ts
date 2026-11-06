@@ -332,7 +332,15 @@ describe('wishes', () => {
   it('le bénéficiaire ajoute un souhait complet ou avec le seul titre (D2)', async () => {
     await seedEvent()
     const lea = await asMember('lea')
-    await assertSucceeds(setDoc(doc(lea, ...wishPath, 'w1'), wish()))
+    await assertSucceeds(
+      setDoc(doc(lea, ...wishPath, 'w1'), wish({ imageUrl: 'https://cdn.exemple.fr/livre.jpg' })),
+    )
+    await assertSucceeds(
+      updateDoc(doc(lea, ...wishPath, 'w1'), {
+        imageUrl: deleteField(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
     await assertSucceeds(
       setDoc(doc(lea, ...wishPath, 'w2'), {
         beneficiaryId: 'lea',
@@ -373,6 +381,8 @@ describe('wishes', () => {
     await assertFails(setDoc(ref, wish({ priceEstimate: -1 })))
     await assertFails(setDoc(ref, wish({ priceEstimate: '20' })))
     await assertFails(setDoc(ref, wish({ priority: 4 })))
+    await assertFails(setDoc(ref, wish({ imageUrl: 'http://exemple.fr/a.jpg' })))
+    await assertFails(setDoc(ref, wish({ imageUrl: `https://a.fr/${'x'.repeat(1000)}` })))
     await assertFails(setDoc(ref, wish({ deleted: true })))
     // Aucune information de réservation dans un souhait.
     await assertFails(setDoc(ref, wish({ claimedBy: 'tom' })))

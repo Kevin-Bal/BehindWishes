@@ -45,6 +45,8 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ vars.APPID }}
           # Facultatif : App Check (clé de site reCAPTCHA v3).
           VITE_APPCHECK_SITE_KEY: ${{ vars.APPCHECKSITEKEY }}
+          # Facultatif : worker Cloudflare de saisie intelligente des liens.
+          VITE_LINK_PREVIEW_URL: ${{ vars.LINKPREVIEWURL }}
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'

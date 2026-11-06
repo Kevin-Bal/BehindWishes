@@ -132,7 +132,9 @@ service cloud.firestore {
                                        'updatedAt'])
               && data.keys().hasOnly(['beneficiaryId', 'title', 'url', 'description',
                                       'priceEstimate', 'priority', 'deleted', 'createdAt',
-                                      'updatedAt', 'contentUpdatedAt'])
+                                      'updatedAt', 'contentUpdatedAt', 'imageUrl'])
+              && (!('imageUrl' in data) || (isString(data.imageUrl, 1, 1000)
+                                            && data.imageUrl.matches('^https://.+')))
               && (!('contentUpdatedAt' in data) || data.contentUpdatedAt is timestamp)
               && isString(data.title, 1, 120)
               && (!('url' in data) || (isString(data.url, 1, 500)
@@ -161,7 +163,8 @@ service cloud.firestore {
           allow update: if signedIn()
             && resource.data.beneficiaryId == me()
             && changedKeys().hasOnly(['title', 'url', 'description', 'priceEstimate',
-                                      'priority', 'deleted', 'updatedAt', 'contentUpdatedAt'])
+                                      'priority', 'deleted', 'updatedAt', 'contentUpdatedAt',
+                                      'imageUrl'])
             && (!('contentUpdatedAt' in changedKeys())
                 || request.resource.data.contentUpdatedAt == request.time)
             && request.resource.data.updatedAt == request.time

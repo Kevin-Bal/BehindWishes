@@ -1,4 +1,5 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { fetchLinkPreview, linkPreviewEnabled } from '../lib/linkPreview'
 import type { Wish, WishDraft } from '../lib/wishes'
 import {
   normalizeUrl,
@@ -51,8 +52,40 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
   const [errors, setErrors] = useState<Errors>({})
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string | undefined>(wish?.imageUrl)
+  const [preview, setPreview] = useState<'idle' | 'loading' | 'found' | 'empty'>('idle')
+  // Dernier lien déjà lu : on ne relit pas le lien d'un souhait qu'on modifie.
+  const lastRead = useRef<string | null>(wish?.url ? normalizeUrl(wish.url) : null)
 
   const titleRef = useRef<HTMLInputElement>(null)
+
+  // Saisie intelligente (V1.5) : un lien valide remplit titre, image et prix s'ils sont vides.
+  useEffect(() => {
+    const target = linkPreviewEnabled ? normalizeUrl(url) : null
+    if (!target || target === lastRead.current) return
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      setPreview('loading')
+      fetchLinkPreview(target, controller.signal)
+        .then((found) => {
+          lastRead.current = target
+          if (found.title) setTitle((t) => (t.trim() ? t : (found.title ?? t)))
+          if (found.image) setImageUrl((img) => img ?? found.image)
+          if (found.price !== undefined) {
+            setPrice((p) => (p.trim() ? p : priceInputValue(found.price)))
+            setMoreOptions(true)
+          }
+          setPreview(found.title || found.image || found.price !== undefined ? 'found' : 'empty')
+        })
+        .catch((error: unknown) => {
+          if (!(error instanceof DOMException && error.name === 'AbortError')) setPreview('empty')
+        })
+    }, 400)
+    return () => {
+      clearTimeout(timer)
+      controller.abort()
+    }
+  }, [url])
 
   function reset() {
     setTitle('')
@@ -60,6 +93,9 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
     setDescription('')
     setPrice('')
     setPriority(undefined)
+    setImageUrl(undefined)
+    setPreview('idle')
+    lastRead.current = null
     setErrors({})
     // Prêt pour le souhait suivant sans toucher l'écran.
     titleRef.current?.focus()
@@ -86,6 +122,8 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
         ...(description.trim() ? { description } : {}),
         ...(parsedPrice !== null ? { priceEstimate: parsedPrice } : {}),
         ...(priority ? { priority } : {}),
+        // L'image n'a de sens qu'avec le lien dont elle vient.
+        ...(imageUrl && normalizedUrl ? { imageUrl } : {}),
       })
       if (keepOpen) reset()
       else onClose()
@@ -131,6 +169,14 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
           setTitle(e.target.value)
           setErrors((x) => ({ ...x, title: undefined }))
         }}
+        onPaste={(e) => {
+          // Un lien collé dans le titre va dans le champ Lien, qui remplit le reste.
+          const text = e.clipboardData.getData('text').trim()
+          if (/^https?:\/\//i.test(text) && !url.trim() && normalizeUrl(text)) {
+            e.preventDefault()
+            setUrl(text)
+          }
+        }}
         error={errors.title}
       />
       <TextField
@@ -147,8 +193,41 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
           setUrl(e.target.value)
           setErrors((x) => ({ ...x, url: undefined }))
         }}
+        hint={
+          linkPreviewEnabled
+            ? 'Colle un lien : le titre, l’image et le prix se remplissent tout seuls.'
+            : undefined
+        }
         error={errors.url}
       />
+      {preview === 'loading' && (
+        <p role="status" className="-mt-2 text-sm text-ink-muted">
+          Lecture du lien…
+        </p>
+      )}
+      {preview === 'empty' && (
+        <p role="status" className="-mt-2 text-sm text-ink-muted">
+          Ce site ne donne pas d’informations : complète à la main.
+        </p>
+      )}
+      {imageUrl && (
+        <div className="-mt-1 flex items-center gap-3">
+          <img
+            src={imageUrl}
+            alt=""
+            referrerPolicy="no-referrer"
+            className="size-16 rounded-xl border border-line bg-white object-contain"
+            onError={() => setImageUrl(undefined)}
+          />
+          <button
+            type="button"
+            onClick={() => setImageUrl(undefined)}
+            className="min-h-11 text-sm font-semibold text-accent underline underline-offset-4"
+          >
+            Retirer l’image
+          </button>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <label htmlFor="wish-description" className="font-semibold">
           Précisions (facultatif)

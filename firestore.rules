@@ -103,6 +103,46 @@ service cloud.firestore {
           && validEvent(request.resource.data);
         // Niveau 1 (confiance familiale) : l'interface réserve la suppression au créateur.
         allow delete: if signedIn();
+
+        // ── Souhaits (D1 à D4) ───────────────────────────────────────────
+        // Un souhait ne contient JAMAIS d'information de réservation (voir `claims`).
+        match /wishes/{wishId} {
+          function validWish(data) {
+            return data.keys().hasAll(['beneficiaryId', 'title', 'deleted', 'createdAt',
+                                       'updatedAt'])
+              && data.keys().hasOnly(['beneficiaryId', 'title', 'url', 'description',
+                                      'priceEstimate', 'priority', 'deleted', 'createdAt',
+                                      'updatedAt'])
+              && isString(data.title, 1, 120)
+              && (!('url' in data) || (isString(data.url, 1, 500)
+                                       && data.url.matches('^https?://.+')))
+              && (!('description' in data) || isString(data.description, 1, 500))
+              && (!('priceEstimate' in data) || (data.priceEstimate is number
+                                                 && data.priceEstimate >= 0
+                                                 && data.priceEstimate <= 100000))
+              && (!('priority' in data) || data.priority in [1, 2, 3])
+              && data.deleted is bool;
+          }
+
+          function event() {
+            return get(/databases/$(database)/documents/groups/$(code)/events/$(eventId)).data;
+          }
+
+          allow read: if signedIn();
+          allow create: if signedIn()
+            && validWish(request.resource.data)
+            && request.resource.data.deleted == false
+            && request.resource.data.createdAt == request.time
+            && request.resource.data.updatedAt == request.time
+            && request.resource.data.beneficiaryId in event().beneficiaryIds;
+          allow update: if signedIn()
+            && changedKeys().hasOnly(['title', 'url', 'description', 'priceEstimate',
+                                      'priority', 'deleted', 'updatedAt'])
+            && request.resource.data.updatedAt == request.time
+            && validWish(request.resource.data);
+          // Suppression logique uniquement (`deleted = true`) : le réservant doit être prévenu.
+          allow delete: if false;
+        }
       }
     }
 

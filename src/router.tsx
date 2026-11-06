@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { EventFormPage } from './pages/group/EventFormPage'
 import { EventPage } from './pages/group/EventPage'
+import { ListPage } from './pages/group/ListPage'
 import { GroupHomePage } from './pages/group/GroupHomePage'
 import { GroupLayout } from './pages/group/GroupLayout'
 import { MembersPage } from './pages/group/MembersPage'
@@ -27,6 +28,7 @@ export const router = createHashRouter([
       { path: 'e/nouveau', element: <EventFormPage mode="create" /> },
       { path: 'e/:eventId', element: <EventPage /> },
       { path: 'e/:eventId/modifier', element: <EventFormPage mode="edit" /> },
+      { path: 'e/:eventId/l/:memberId', element: <ListPage /> },
       { path: 'membres', element: <MembersPage /> },
       { path: 'reservations', element: <ReservationsPage /> },
       { path: '*', element: <NotFoundPage /> },

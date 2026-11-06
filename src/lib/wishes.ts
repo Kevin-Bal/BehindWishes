@@ -1,0 +1,130 @@
+import {
+  addDoc,
+  collection,
+  deleteField,
+  doc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
+  type DocumentSnapshot,
+} from 'firebase/firestore'
+import { useEffect, useState } from 'react'
+import { getFirebase } from './firebase'
+import type { Loadable } from './groups'
+import { compareWishes, type Priority } from './wishFormat'
+
+export interface Wish {
+  id: string
+  beneficiaryId: string
+  title: string
+  url?: string
+  description?: string
+  priceEstimate?: number
+  priority?: Priority
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface WishDraft {
+  title: string
+  url?: string
+  description?: string
+  priceEstimate?: number
+  priority?: Priority
+}
+
+const wishesRef = (code: string, eventId: string) =>
+  collection(getFirebase().db, 'groups', code, 'events', eventId, 'wishes')
+
+/** Champs facultatifs : absents du document plutôt qu'à `null`. */
+function optionalFields(draft: WishDraft) {
+  return {
+    ...(draft.url ? { url: draft.url } : {}),
+    ...(draft.description?.trim() ? { description: draft.description.trim() } : {}),
+    ...(draft.priceEstimate !== undefined ? { priceEstimate: draft.priceEstimate } : {}),
+    ...(draft.priority ? { priority: draft.priority } : {}),
+  }
+}
+
+export async function addWish(
+  code: string,
+  eventId: string,
+  beneficiaryId: string,
+  draft: WishDraft,
+) {
+  await addDoc(wishesRef(code, eventId), {
+    beneficiaryId,
+    title: draft.title.trim(),
+    ...optionalFields(draft),
+    deleted: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+export async function updateWish(code: string, eventId: string, wishId: string, draft: WishDraft) {
+  const optional = optionalFields(draft)
+  await updateDoc(doc(wishesRef(code, eventId), wishId), {
+    title: draft.title.trim(),
+    url: optional.url ?? deleteField(),
+    description: optional.description ?? deleteField(),
+    priceEstimate: optional.priceEstimate ?? deleteField(),
+    priority: optional.priority ?? deleteField(),
+    updatedAt: serverTimestamp(),
+  })
+}
+
+/**
+ * Suppression logique (D3) : le souhait disparaît de la liste, mais un éventuel
+ * réservant pourra être prévenu (« Souhait supprimé », lot 4).
+ */
+export async function deleteWish(code: string, eventId: string, wishId: string) {
+  await updateDoc(doc(wishesRef(code, eventId), wishId), {
+    deleted: true,
+    updatedAt: serverTimestamp(),
+  })
+}
+
+function fromSnapshot(snap: DocumentSnapshot): Wish {
+  // Écriture locale en attente : l'horodatage serveur est estimé.
+  const opts = { serverTimestamps: 'estimate' } as const
+  const priority = snap.get('priority') as number | undefined
+  const createdAt = snap.get('createdAt', opts)?.toDate?.() ?? new Date()
+  return {
+    id: snap.id,
+    beneficiaryId: String(snap.get('beneficiaryId') ?? ''),
+    title: String(snap.get('title') ?? ''),
+    ...(snap.get('url') ? { url: String(snap.get('url')) } : {}),
+    ...(snap.get('description') ? { description: String(snap.get('description')) } : {}),
+    ...(typeof snap.get('priceEstimate') === 'number'
+      ? { priceEstimate: snap.get('priceEstimate') as number }
+      : {}),
+    ...(priority === 1 || priority === 2 || priority === 3 ? { priority } : {}),
+    createdAt,
+    updatedAt: snap.get('updatedAt', opts)?.toDate?.() ?? createdAt,
+  }
+}
+
+/**
+ * Souhaits visibles d'un évènement (non supprimés), triés (D4).
+ * Le regroupement par bénéficiaire se fait côté client.
+ */
+export function useEventWishes(code: string, eventId: string): Loadable<Wish[]> {
+  const [state, setState] = useState<Loadable<Wish[]>>({ status: 'loading' })
+  useEffect(
+    () =>
+      onSnapshot(
+        query(wishesRef(code, eventId), where('deleted', '==', false)),
+        (snap) =>
+          setState({
+            status: 'ready',
+            data: snap.docs.map(fromSnapshot).sort(compareWishes),
+          }),
+        (error) => setState({ status: 'error', error }),
+      ),
+    [code, eventId],
+  )
+  return state
+}

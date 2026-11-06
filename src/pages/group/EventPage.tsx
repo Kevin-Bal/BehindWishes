@@ -9,12 +9,14 @@ import { eventTypeInfo, useEvent } from '../../lib/events'
 import { useMe } from '../../lib/groupContext'
 import type { Member } from '../../lib/groups'
 import { useEventTheme } from '../../lib/useEventTheme'
+import { useEventWishes } from '../../lib/wishes'
 
-/** Page d'un évènement : bénéficiaires, ma liste en premier (D1, contenu au lot 3). */
+/** Page d'un évènement : la liste de chaque bénéficiaire, la mienne en premier (D1). */
 export function EventPage() {
   const { code, me, members, basePath } = useMe()
   const { eventId = '' } = useParams()
   const event = useEvent(code, eventId)
+  const wishes = useEventWishes(code, eventId)
   useEventTheme(event.status === 'ready' ? event.data?.type : undefined)
 
   if (event.status === 'loading') return <StateMessage title="Chargement…" busy />
@@ -92,19 +94,40 @@ export function EventPage() {
 
       <h2 className="px-1 text-lg font-semibold">Les listes</h2>
       <ul className="flex flex-col gap-3">
-        {beneficiaries.map((m) => (
-          <li key={m.id}>
-            <Card className="flex items-center gap-3">
-              <Avatar name={m.name} color={m.color} emoji={m.emoji} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-lg font-semibold">
-                  {m.id === me.id ? 'Ma liste' : `Liste de ${m.name}`}
-                </p>
-                <p className="text-sm text-ink-muted">Les souhaits arrivent très bientôt.</p>
-              </div>
-            </Card>
-          </li>
-        ))}
+        {beneficiaries.map((m) => {
+          const isMine = m.id === me.id
+          const count =
+            wishes.status === 'ready'
+              ? wishes.data.filter((w) => w.beneficiaryId === m.id).length
+              : null
+          return (
+            <li key={m.id}>
+              <Link
+                to={`${basePath}/e/${e.id}/l/${m.id}`}
+                className="flex items-center gap-3 rounded-[20px] border border-line bg-surface p-4 shadow-[0_1px_3px_rgba(0,0,0,0.06)] transition-transform duration-200 active:scale-[0.98]"
+              >
+                <Avatar name={m.name} color={m.color} emoji={m.emoji} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-lg font-semibold">
+                    {isMine ? 'Ma liste' : `Liste de ${m.name}`}
+                  </p>
+                  <p className="text-sm text-ink-muted">
+                    {count === null
+                      ? '…'
+                      : count === 0
+                        ? isMine
+                          ? 'Vide : ajoute ta première idée'
+                          : 'Pas encore de souhait'
+                        : `${count} souhait${count > 1 ? 's' : ''}`}
+                  </p>
+                </div>
+                <span aria-hidden="true" className="text-2xl text-ink-muted">
+                  ›
+                </span>
+              </Link>
+            </li>
+          )
+        })}
       </ul>
     </Screen>
   )

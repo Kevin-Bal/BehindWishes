@@ -249,3 +249,98 @@ describe('events', () => {
     await assertFails(getDoc(doc(asAnonymous(), 'groups', CODE, 'events', 'e1')))
   })
 })
+
+describe('wishes', () => {
+  const wishPath = ['groups', CODE, 'events', 'noel', 'wishes'] as const
+
+  async function seedEvent() {
+    await seedGroup()
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore() as unknown as Firestore
+      await setDoc(doc(db, 'groups', CODE, 'events', 'noel'), {
+        title: 'Noël',
+        type: 'noel',
+        date: null,
+        beneficiaryIds: ['lea'],
+        participantIds: ['lea', 'tom'],
+        archived: false,
+        createdBy: 'lea',
+        createdAt: new Date(),
+      })
+    })
+  }
+
+  const wish = (overrides: Record<string, unknown> = {}) => ({
+    beneficiaryId: 'lea',
+    title: 'Un livre',
+    url: 'https://www.exemple.fr/livre',
+    description: 'Le tome 2',
+    priceEstimate: 19.9,
+    priority: 3,
+    deleted: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('ajoute un souhait complet ou avec le seul titre (D2)', async () => {
+    await seedEvent()
+    const db = asDevice('bob')
+    await assertSucceeds(setDoc(doc(db, ...wishPath, 'w1'), wish()))
+    await assertSucceeds(
+      setDoc(doc(db, ...wishPath, 'w2'), {
+        beneficiaryId: 'lea',
+        title: 'Une surprise',
+        deleted: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+  })
+
+  it("refuse un souhait pour quelqu'un qui n'est pas bénéficiaire", async () => {
+    await seedEvent()
+    await assertFails(
+      setDoc(doc(asDevice('bob'), ...wishPath, 'w1'), wish({ beneficiaryId: 'tom' })),
+    )
+  })
+
+  it('valide le schéma : longueurs, lien http(s), prix, priorité', async () => {
+    await seedEvent()
+    const ref = doc(asDevice('bob'), ...wishPath, 'w1')
+    await assertFails(setDoc(ref, wish({ title: '' })))
+    await assertFails(setDoc(ref, wish({ title: 'x'.repeat(121) })))
+    await assertFails(setDoc(ref, wish({ url: 'javascript:alert(1)' })))
+    await assertFails(setDoc(ref, wish({ url: `https://a.fr/${'x'.repeat(500)}` })))
+    await assertFails(setDoc(ref, wish({ description: 'x'.repeat(501) })))
+    await assertFails(setDoc(ref, wish({ priceEstimate: -1 })))
+    await assertFails(setDoc(ref, wish({ priceEstimate: '20' })))
+    await assertFails(setDoc(ref, wish({ priority: 4 })))
+    await assertFails(setDoc(ref, wish({ deleted: true })))
+    // Aucune information de réservation dans un souhait.
+    await assertFails(setDoc(ref, wish({ claimedBy: 'tom' })))
+  })
+
+  it('modifie puis supprime logiquement, jamais physiquement (D3)', async () => {
+    await seedEvent()
+    const ref = doc(asDevice('bob'), ...wishPath, 'w1')
+    await assertSucceeds(setDoc(ref, wish()))
+    await assertSucceeds(
+      updateDoc(ref, {
+        title: 'Un autre livre',
+        priority: deleteField(),
+        updatedAt: serverTimestamp(),
+      }),
+    )
+    await assertFails(updateDoc(ref, { title: 'Sans horodatage' }))
+    await assertFails(updateDoc(ref, { beneficiaryId: 'tom', updatedAt: serverTimestamp() }))
+    await assertSucceeds(updateDoc(ref, { deleted: true, updatedAt: serverTimestamp() }))
+    await assertFails(deleteDoc(ref))
+  })
+
+  it('lit les souhaits non supprimés', async () => {
+    await seedEvent()
+    const db = asDevice('bob')
+    await assertSucceeds(getDocs(query(collection(db, ...wishPath), where('deleted', '==', false))))
+  })
+})

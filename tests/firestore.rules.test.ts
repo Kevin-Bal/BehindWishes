@@ -15,9 +15,12 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   updateDoc,
+  where,
   writeBatch,
   type Firestore,
 } from 'firebase/firestore'
@@ -174,5 +177,75 @@ describe('members', () => {
     const ref = doc(asDevice('bob'), 'groups', CODE, 'members', 'lea')
     await assertFails(updateDoc(ref, { createdAt: serverTimestamp() }))
     await assertFails(deleteDoc(ref))
+  })
+})
+
+describe('events', () => {
+  const event = (overrides: Record<string, unknown> = {}) => ({
+    title: 'Noël 2026',
+    type: 'noel',
+    date: Timestamp.fromDate(new Date(2026, 11, 25, 12)),
+    beneficiaryIds: ['lea'],
+    participantIds: ['lea', 'tom'],
+    archived: false,
+    createdBy: 'lea',
+    createdAt: serverTimestamp(),
+    ...overrides,
+  })
+
+  it('crée un évènement avec ou sans date (C2)', async () => {
+    await seedGroup()
+    const db = asDevice('bob')
+    await assertSucceeds(setDoc(doc(db, 'groups', CODE, 'events', 'noel'), event()))
+    await assertSucceeds(
+      setDoc(doc(db, 'groups', CODE, 'events', 'pot'), event({ type: 'autre', date: null })),
+    )
+  })
+
+  it('exige au moins un bénéficiaire, lui-même participant', async () => {
+    await seedGroup()
+    const ref = doc(asDevice('bob'), 'groups', CODE, 'events', 'e1')
+    await assertFails(setDoc(ref, event({ beneficiaryIds: [] })))
+    await assertFails(setDoc(ref, event({ beneficiaryIds: ['lea'], participantIds: ['tom'] })))
+  })
+
+  it('valide le schéma et le créateur', async () => {
+    await seedGroup()
+    const ref = doc(asDevice('bob'), 'groups', CODE, 'events', 'e1')
+    await assertFails(setDoc(ref, event({ title: '' })))
+    await assertFails(setDoc(ref, event({ title: 'x'.repeat(81) })))
+    await assertFails(setDoc(ref, event({ type: 'mariage' })))
+    await assertFails(setDoc(ref, event({ date: '2026-12-25' })))
+    await assertFails(setDoc(ref, event({ archived: true })))
+    await assertFails(setDoc(ref, event({ createdBy: 'inconnu' })))
+    await assertFails(setDoc(ref, event({ secret: true })))
+  })
+
+  it('modifie et archive, sans toucher au créateur (C3)', async () => {
+    await seedGroup()
+    const db = asDevice('bob')
+    const ref = doc(db, 'groups', CODE, 'events', 'e1')
+    await assertSucceeds(setDoc(ref, event()))
+    await assertSucceeds(updateDoc(ref, { title: 'Noël chez Mamie', date: null }))
+    await assertSucceeds(updateDoc(ref, { archived: true }))
+    await assertFails(updateDoc(ref, { createdBy: 'tom' }))
+    await assertFails(updateDoc(ref, { beneficiaryIds: [] }))
+  })
+
+  it('lit les évènements par participant et les supprime', async () => {
+    await seedGroup()
+    const db = asDevice('bob')
+    const ref = doc(db, 'groups', CODE, 'events', 'e1')
+    await assertSucceeds(setDoc(ref, event()))
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(db, 'groups', CODE, 'events'),
+          where('participantIds', 'array-contains', 'tom'),
+        ),
+      ),
+    )
+    await assertSucceeds(deleteDoc(ref))
+    await assertFails(getDoc(doc(asAnonymous(), 'groups', CODE, 'events', 'e1')))
   })
 })

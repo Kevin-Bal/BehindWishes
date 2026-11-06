@@ -3,6 +3,8 @@ import { CreateGroupPage } from './pages/CreateGroupPage'
 import { DiagnosticPage } from './pages/DiagnosticPage'
 import { HomePage } from './pages/HomePage'
 import { NotFoundPage } from './pages/NotFoundPage'
+import { EventFormPage } from './pages/group/EventFormPage'
+import { EventPage } from './pages/group/EventPage'
 import { GroupHomePage } from './pages/group/GroupHomePage'
 import { GroupLayout } from './pages/group/GroupLayout'
 import { MembersPage } from './pages/group/MembersPage'
@@ -22,6 +24,9 @@ export const router = createHashRouter([
     children: [
       { index: true, element: <GroupHomePage /> },
       { path: 'qui', element: <WhoPage /> },
+      { path: 'e/nouveau', element: <EventFormPage mode="create" /> },
+      { path: 'e/:eventId', element: <EventPage /> },
+      { path: 'e/:eventId/modifier', element: <EventFormPage mode="edit" /> },
       { path: 'membres', element: <MembersPage /> },
       { path: 'reservations', element: <ReservationsPage /> },
       { path: '*', element: <NotFoundPage /> },

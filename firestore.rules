@@ -71,6 +71,39 @@ service cloud.firestore {
         // Pas de suppression définitive : on archive (l'historique est conservé).
         allow delete: if false;
       }
+
+      // ── Évènements (C1, C2, C3) ──────────────────────────────────────────
+      match /events/{eventId} {
+        function validEvent(data) {
+          return data.keys().hasAll(['title', 'type', 'date', 'beneficiaryIds', 'participantIds',
+                                     'archived', 'createdBy', 'createdAt'])
+            && data.keys().hasOnly(['title', 'type', 'date', 'beneficiaryIds', 'participantIds',
+                                    'archived', 'createdBy', 'createdAt'])
+            && isString(data.title, 1, 80)
+            && data.type in ['noel', 'anniversaire', 'autre']
+            && (data.date == null || data.date is timestamp)
+            && data.beneficiaryIds is list
+            && data.beneficiaryIds.size() >= 1 && data.beneficiaryIds.size() <= 100
+            && data.participantIds is list
+            && data.participantIds.size() <= 100
+            // Tout bénéficiaire est aussi participant.
+            && data.participantIds.hasAll(data.beneficiaryIds)
+            && data.archived is bool;
+        }
+
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && validEvent(request.resource.data)
+          && request.resource.data.archived == false
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/groups/$(code)/members/$(request.resource.data.createdBy));
+        allow update: if signedIn()
+          && changedKeys().hasOnly(['title', 'type', 'date', 'beneficiaryIds', 'participantIds',
+                                    'archived'])
+          && validEvent(request.resource.data);
+        // Niveau 1 (confiance familiale) : l'interface réserve la suppression au créateur.
+        allow delete: if signedIn();
+      }
     }
 
     // Tout le reste est refusé par défaut.

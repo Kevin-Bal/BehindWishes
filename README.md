@@ -26,5 +26,13 @@ npm run dev:emu     # terminal 2
 
 ## Déploiement
 
-- **Site** : chaque push sur `main` lance `.github/workflows/deploy.yml` (lint, tests, build, GitHub Pages). La config Firebase est lue depuis les _variables_ du dépôt (`APIKEY`, `AUTHDOMAIN`, `PROJECTID`, `STORAGEBUCKET`, `MESSAGINGSENDERID`, `APPID`).
+- **Site** : chaque push sur `main` lance `.github/workflows/deploy.yml` (lint, tests, tests des règles dans l'émulateur, build, GitHub Pages). Les autres branches ne lancent que les vérifications. La config est lue depuis les _variables_ du dépôt :
+  - Firebase : `APIKEY`, `AUTHDOMAIN`, `PROJECTID`, `STORAGEBUCKET`, `MESSAGINGSENDERID`, `APPID`
+  - Facultatif : `LINKPREVIEWURL` (worker de saisie intelligente), `APPCHECKSITEKEY` (App Check, reCAPTCHA v3)
 - **Règles Firestore** : `npx firebase login` puis `npm run deploy:rules`.
+- **Worker de saisie intelligente des liens** (`worker/`, Cloudflare Workers) : `npx wrangler login` puis `npm run deploy:worker`. Origines autorisées dans `worker/wrangler.toml`.
+
+## Installer l'app sur un téléphone
+
+- **iPhone** : ouvrir le site dans Safari → Partager → « Sur l'écran d'accueil ».
+- **Android** : ouvrir le site dans Chrome → ⋮ → « Installer l'application ».

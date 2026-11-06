@@ -35,13 +35,14 @@ jobs:
         run: npm run build
         env:
           # Config Firebase publique par conception (sécurisée par les règles Firestore).
-          # À déclarer dans Settings > Secrets and variables > Actions > Variables.
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          # Déclarée dans Settings > Secrets and variables > Actions > Variables
+          # (APIKEY, AUTHDOMAIN, PROJECTID, STORAGEBUCKET, MESSAGINGSENDERID, APPID).
+          VITE_FIREBASE_API_KEY: ${{ vars.APIKEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.AUTHDOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.PROJECTID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.STORAGEBUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.MESSAGINGSENDERID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.APPID }}
 
       - uses: actions/upload-pages-artifact@v3
         if: github.ref == 'refs/heads/main'

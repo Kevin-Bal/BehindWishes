@@ -26,5 +26,5 @@ npm run dev:emu     # terminal 2
 
 ## Déploiement
 
-- **Site** : chaque push sur `main` lance `.github/workflows/deploy.yml` (lint, tests, build, GitHub Pages). La config Firebase est lue depuis les _variables_ du dépôt (`VITE_FIREBASE_*`).
+- **Site** : chaque push sur `main` lance `.github/workflows/deploy.yml` (lint, tests, build, GitHub Pages). La config Firebase est lue depuis les _variables_ du dépôt (`APIKEY`, `AUTHDOMAIN`, `PROJECTID`, `STORAGEBUCKET`, `MESSAGINGSENDERID`, `APPID`).
 - **Règles Firestore** : `npx firebase login` puis `npm run deploy:rules`.

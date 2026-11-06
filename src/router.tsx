@@ -1,8 +1,13 @@
 import { createHashRouter } from 'react-router'
+import { CreateGroupPage } from './pages/CreateGroupPage'
 import { DiagnosticPage } from './pages/DiagnosticPage'
 import { HomePage } from './pages/HomePage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
+import { GroupHomePage } from './pages/group/GroupHomePage'
+import { GroupLayout } from './pages/group/GroupLayout'
+import { MembersPage } from './pages/group/MembersPage'
+import { ReservationsPage } from './pages/group/ReservationsPage'
+import { WhoPage } from './pages/group/WhoPage'
 
 /**
  * Routage en mode hash (`/#/g/CODE/e/ID`) : GitHub Pages ne sait pas servir
@@ -10,8 +15,18 @@ import { PlaceholderPage } from './pages/PlaceholderPage'
  */
 export const router = createHashRouter([
   { path: '/', element: <HomePage /> },
-  { path: '/nouveau', element: <PlaceholderPage title="Créer un groupe" lot="lot 1" /> },
-  { path: '/g/:code/*', element: <PlaceholderPage title="Ton groupe" lot="lot 1" /> },
+  { path: '/nouveau', element: <CreateGroupPage /> },
+  {
+    path: '/g/:code',
+    element: <GroupLayout />,
+    children: [
+      { index: true, element: <GroupHomePage /> },
+      { path: 'qui', element: <WhoPage /> },
+      { path: 'membres', element: <MembersPage /> },
+      { path: 'reservations', element: <ReservationsPage /> },
+      { path: '*', element: <NotFoundPage /> },
+    ],
+  },
   { path: '/diagnostic', element: <DiagnosticPage /> },
   { path: '*', element: <NotFoundPage /> },
 ])

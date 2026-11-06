@@ -19,9 +19,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -44,14 +44,34 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.MESSAGINGSENDERID }}
           VITE_FIREBASE_APP_ID: ${{ vars.APPID }}
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         if: github.ref == 'refs/heads/main'
         with:
           path: dist
 
+  rules:
+    name: Tests des règles Firestore
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      # L'émulateur Firestore tourne sur Java.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+      - run: npm run test:rules
+
   deploy:
     if: github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, rules]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

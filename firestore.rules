@@ -2,9 +2,7 @@ rules_version = '2';
 
 // Règles Firestore — la sécurité de l'app repose entièrement sur ce fichier
 // (site statique, aucun serveur). Voir docs/SPEC.md, sections Confidentialité et Architecture.
-//
-// Lot 0 : tout est fermé, sauf un document de diagnostic par appareil.
-// Les règles `groups/**` arrivent au Lot 1, avec leurs tests dans l'émulateur.
+// Toute modification doit garder tests/firestore.rules.test.ts au vert (`npm run test:rules`).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -12,9 +10,67 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isString(value, minSize, maxSize) {
+      return value is string && value.size() >= minSize && value.size() <= maxSize;
+    }
+
+    // Seuls les champs modifiés par la requête, comparés au document existant.
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
     // Diagnostic du Lot 0 : chaque appareil (uid anonyme) lit et écrit son propre document.
     match /healthchecks/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ── Groupes ────────────────────────────────────────────────────────────
+    // L'identifiant du groupe EST son code d'accès : le connaître donne accès au contenu,
+    // et aucune requête ne permet de lister les groupes.
+    match /groups/{code} {
+      function validGroup(data) {
+        return data.keys().hasOnly(['name', 'createdAt'])
+          && isString(data.name, 1, 60);
+      }
+
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && code.matches('^[A-HJ-NP-Z2-9]{8}$')
+        && validGroup(request.resource.data)
+        && request.resource.data.createdAt == request.time;
+      allow update: if signedIn()
+        && changedKeys().hasOnly(['name'])
+        && validGroup(request.resource.data);
+      allow delete: if false;
+
+      function groupExistsAfter() {
+        return existsAfter(/databases/$(database)/documents/groups/$(code));
+      }
+
+      // ── Membres (A3, B1, B2) ─────────────────────────────────────────────
+      match /members/{memberId} {
+        function validMember(data) {
+          return data.keys().hasAll(['name', 'color', 'archived', 'createdAt'])
+            && data.keys().hasOnly(['name', 'color', 'emoji', 'archived', 'createdAt'])
+            && isString(data.name, 1, 30)
+            && data.color is string && data.color.matches('^#[0-9a-fA-F]{6}$')
+            && (!('emoji' in data) || isString(data.emoji, 1, 16))
+            && data.archived is bool;
+        }
+
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && groupExistsAfter()
+          && validMember(request.resource.data)
+          && request.resource.data.archived == false
+          && request.resource.data.createdAt == request.time;
+        allow update: if signedIn()
+          && changedKeys().hasOnly(['name', 'color', 'emoji', 'archived'])
+          && validMember(request.resource.data);
+        // Pas de suppression définitive : on archive (l'historique est conservé).
+        allow delete: if false;
+      }
     }
 
     // Tout le reste est refusé par défaut.

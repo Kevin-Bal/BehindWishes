@@ -185,7 +185,7 @@ function EventForm({ existing }: { existing?: GroupEvent }) {
               label="Type d’évènement"
               value={draft.type}
               onChange={changeType}
-              options={EVENT_TYPES.map((t) => ({ value: t.value, label: `${t.emoji} ${t.label}` }))}
+              options={EVENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
             />
             {!existing && draft.type === 'autre' && (
               <p className="text-sm text-ink-muted">Naissance, mariage, pot de départ…</p>
@@ -297,7 +297,7 @@ function EventForm({ existing }: { existing?: GroupEvent }) {
             {existing.createdBy === me.id && (
               <>
                 <Button
-                  variant="danger"
+                  variant={confirm === 'delete' ? 'danger' : 'secondary'}
                   disabled={busy}
                   onClick={() => {
                     if (confirm !== 'delete') return setConfirm('delete')

@@ -185,7 +185,7 @@ function ClaimDetail({
             {mine.status === 'purchased' ? 'Pas encore acheté finalement' : 'Je l’ai acheté ✓'}
           </Button>
           <Button
-            variant="danger"
+            variant={confirmCancel ? 'danger' : 'secondary'}
             disabled={busy}
             onClick={() => {
               if (!confirmCancel) return setConfirmCancel(true)

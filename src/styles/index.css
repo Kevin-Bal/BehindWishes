@@ -106,6 +106,17 @@
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
   }
+  /*
+   * iOS / iPadOS (Safari et app installée) : la taille de base suit le réglage
+   * « Taille du texte » du téléphone (Dynamic Type). 17 px par défaut, comme le
+   * corps de texte iOS ; tout le reste est en rem et suit. La police reste celle
+   * de `body` (font-sans).
+   */
+  @supports (font: -apple-system-body) {
+    html {
+      font: -apple-system-body;
+    }
+  }
   body {
     @apply min-h-dvh font-sans text-ink antialiased;
     background-color: var(--bg);

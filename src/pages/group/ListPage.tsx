@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { ClaimSheet } from '../../components/ClaimSheet'
-import { Screen } from '../../components/Screen'
 import { WishCard } from '../../components/WishCard'
 import { WishSheet } from '../../components/WishSheet'
 import { GlassButton } from '../../components/glass'
@@ -25,6 +24,7 @@ import { useEvent } from '../../lib/events'
 import { useMe } from '../../lib/groupContext'
 import { useEventTheme } from '../../lib/useEventTheme'
 import { addWish, deleteWish, updateWish, useEventWishes, type Wish } from '../../lib/wishes'
+import { GroupScreen } from './GroupScreen'
 
 type SheetState =
   | { mode: 'closed' }
@@ -107,7 +107,7 @@ export function ListPage() {
   }
 
   return (
-    <Screen
+    <GroupScreen
       title={isMine ? 'Ma liste' : `Liste de ${owner.name}`}
       leading={back}
       fab={
@@ -227,7 +227,7 @@ export function ListPage() {
           onCancel={() => cancelClaim(code, eventId, myClaimId)}
         />
       )}
-    </Screen>
+    </GroupScreen>
   )
 }
 
@@ -257,7 +257,7 @@ function ClaimFooter({
         type="button"
         onClick={onOpen}
         className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
-        aria-label={claims.length === 0 ? 'Libre' : `Pris par ${names}`}
+        aria-label={`${claims.length === 0 ? 'Libre' : `Pris par ${names}`}. Détail de « ${wish.title} »`}
       >
         <StatusChip status={aggregateStatus(claims)} count={claims.length} />
         {claims.length > 0 && <span className="truncate text-sm text-ink-muted">{names}</span>}
@@ -268,10 +268,14 @@ function ClaimFooter({
         </span>
       )}
       {mine ? (
-        <Button onClick={onOpen}>{mine.status === 'purchased' ? 'Acheté ✓' : 'Ton cadeau'}</Button>
+        <Button onClick={onOpen}>
+          {mine.status === 'purchased' ? 'Acheté ✓' : 'Ton cadeau'}
+          <span className="sr-only"> : « {wish.title} »</span>
+        </Button>
       ) : (
         <Button variant="primary" onClick={onReserve} disabled={busy}>
           Je le prends
+          <span className="sr-only"> : « {wish.title} »</span>
         </Button>
       )}
     </div>

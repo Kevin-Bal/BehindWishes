@@ -1,5 +1,4 @@
 import { Link, useParams } from 'react-router'
-import { Screen } from '../../components/Screen'
 import { ChevronLeftIcon } from '../../components/icons'
 import { Avatar } from '../../components/ui/Avatar'
 import { Card } from '../../components/ui/Card'
@@ -10,6 +9,7 @@ import { useMe } from '../../lib/groupContext'
 import type { Member } from '../../lib/groups'
 import { useEventTheme } from '../../lib/useEventTheme'
 import { useEventWishes } from '../../lib/wishes'
+import { GroupScreen } from './GroupScreen'
 
 /** Page d'un évènement : la liste de chaque bénéficiaire, la mienne en premier (D1). */
 export function EventPage() {
@@ -50,7 +50,7 @@ export function EventPage() {
     .sort((a, b) => (a.id === me.id ? -1 : b.id === me.id ? 1 : 0))
 
   return (
-    <Screen
+    <GroupScreen
       title={e.title}
       leading={
         <Link
@@ -129,6 +129,6 @@ export function EventPage() {
           )
         })}
       </ul>
-    </Screen>
+    </GroupScreen>
   )
 }

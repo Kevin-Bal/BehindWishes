@@ -216,8 +216,8 @@ function ReservationRow({
   const purchased = claim.status === 'purchased'
   return (
     <div className="flex flex-col gap-2 px-1">
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-[60%] flex-1">
           <p className="font-semibold break-words">{wish.title}</p>
           <div className="flex flex-wrap items-center gap-x-3 text-sm">
             {wish.priceEstimate !== undefined && (
@@ -253,16 +253,18 @@ function ReservationRow({
           }
         >
           {purchased ? 'Pas encore acheté' : 'Je l’ai acheté ✓'}
+          <span className="sr-only"> : « {wish.title} »</span>
         </Button>
         <Button
-          variant="danger"
+          variant={confirmCancel ? 'danger' : 'secondary'}
           disabled={busy}
           onClick={() => {
             if (!confirmCancel) return setConfirmCancel(true)
             void run(() => cancelClaim(code, eventId, claim.id))
           }}
         >
-          {confirmCancel ? 'Oui, annuler' : 'Annuler'}
+          {confirmCancel ? 'Oui, je ne le prends plus' : 'Je ne le prends plus'}
+          <span className="sr-only"> : « {wish.title} »</span>
         </Button>
       </div>
       {error && (

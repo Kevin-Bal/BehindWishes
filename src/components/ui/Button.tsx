@@ -24,7 +24,9 @@ export function Button({
         size === 'lg' && 'min-h-14 text-lg',
         variant === 'primary' && 'bg-accent text-on-accent',
         variant === 'secondary' && 'bg-surface-muted text-ink',
-        variant === 'danger' && 'bg-danger/10 text-danger',
+        // Contour plutôt que remplissage : reste distinct de l'action principale même
+        // quand l'accent de l'évènement est rouge (Noël). Réservé à l'étape de confirmation.
+        variant === 'danger' && 'border-2 border-danger bg-transparent text-danger',
         variant === 'ghost' && 'text-accent underline-offset-4 hover:underline',
         className,
       )}

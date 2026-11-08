@@ -40,6 +40,8 @@ Web app mobile-first de listes de souhaits partagées (famille, amis), où chacu
 - Toutes les surfaces de verre passent par la classe `.glass` (variantes `.glass--thick`, `.glass--tint`) définie dans `src/styles/glass.css`. **Aucun `backdrop-filter` ailleurs.**
 - Verre uniquement pour contrôles et navigation (`src/components/glass/`) ; le contenu (`Card`, `StatusChip`, `Avatar` dans `src/components/ui/`) reste opaque.
 - Au plus trois éléments de verre visibles à la fois, jamais de verre sur du verre.
+- `SegmentedControl` posé dans une carte ou un formulaire reste opaque (`surface="content"`, par défaut) ; `surface="glass"` seulement s'il flotte.
+- Actions destructrices : style `secondary` au premier tap, `danger` (contour) seulement à l'étape de confirmation.
 - Vérifier chaque écran en clair/sombre et en transparence standard/réduite/contraste élevé (page `/#/diagnostic`).
 
 ## Organisation

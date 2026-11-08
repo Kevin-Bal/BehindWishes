@@ -1,11 +1,11 @@
 import { useEffect, type ReactNode } from 'react'
-import { GlassBar, GlassTabBar, type TabItem } from './glass'
+import { GlassBar, GlassTabBar, type BarIdentity, type TabItem } from './glass'
 import { cn } from '../lib/cn'
 
 interface ScreenProps {
   title: string
   leading?: ReactNode
-  identity?: { name: string; onChange: () => void }
+  identity?: BarIdentity
   tabs?: TabItem[]
   /** Bouton flottant (ex. « + »), posé au-dessus de la barre d'onglets. */
   fab?: ReactNode

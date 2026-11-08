@@ -69,7 +69,7 @@ export function DiagnosticPage() {
           <ChevronLeftIcon className="size-6" />
         </Link>
       }
-      identity={{ name: 'Léa', onChange: () => undefined }}
+      identity={{ name: 'Léa', color: '#b8322a', emoji: '🦊', onChange: () => undefined }}
       fab={
         <GlassButton
           variant="tint"

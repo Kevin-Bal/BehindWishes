@@ -1,4 +1,4 @@
-export { GlassBar } from './GlassBar'
+export { GlassBar, type BarIdentity } from './GlassBar'
 export { GlassButton } from './GlassButton'
 export { GlassSheet } from './GlassSheet'
 export { GlassTabBar, type TabItem } from './GlassTabBar'

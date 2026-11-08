@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Screen } from '../../components/Screen'
 import { SegmentedControl } from '../../components/glass'
 import { ChevronLeftIcon } from '../../components/icons'
 import { Card } from '../../components/ui/Card'
 import { useMe } from '../../lib/groupContext'
 import { getTransparency, setTransparency, type Transparency } from '../../lib/preferences'
+import { GroupScreen } from './GroupScreen'
 
 /**
  * Réglages d'affichage, propres à cet appareil. « Transparence réduite » rend les
@@ -17,7 +17,7 @@ export function SettingsPage() {
   const [transparency, setValue] = useState<Transparency>(getTransparency)
 
   return (
-    <Screen
+    <GroupScreen
       title="Affichage"
       leading={
         <Link
@@ -55,6 +55,6 @@ export function SettingsPage() {
           réduite et la réduction des animations de ton téléphone.
         </p>
       </Card>
-    </Screen>
+    </GroupScreen>
   )
 }

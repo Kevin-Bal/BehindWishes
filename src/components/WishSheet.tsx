@@ -284,7 +284,11 @@ function WishForm({ wish, onSubmit, onClose, onDelete }: WishSheetProps) {
       )}
       {wish && onDelete && (
         <>
-          <Button variant="danger" disabled={busy} onClick={handleDelete}>
+          <Button
+            variant={confirmDelete ? 'danger' : 'secondary'}
+            disabled={busy}
+            onClick={handleDelete}
+          >
             {confirmDelete ? 'Oui, supprimer ce souhait' : 'Supprimer ce souhait'}
           </Button>
           {confirmDelete && (

@@ -23,6 +23,11 @@
   background-size: 22px 22px;
   color: var(--nb-ink);
   overflow-x: clip;
+  /* Mobile : pas de zoom au double-tap (déclenché par un défilement rapide sur iOS),
+     le pincement reste possible ; pas de grossissement automatique du texte (Android). */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -249,7 +254,7 @@
     transform 160ms ease-out,
     box-shadow 160ms ease-out;
 }
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .nb-card:hover {
     transform: rotate(0deg) translate(-2px, -2px);
     box-shadow: 11px 11px 0 var(--nb-shadow);
@@ -389,9 +394,11 @@
     transform 100ms ease-out,
     box-shadow 100ms ease-out;
 }
-.nb-btn:hover {
-  transform: translate(-1px, -1px);
-  box-shadow: 5px 5px 0 var(--nb-shadow);
+@media (hover: hover) and (pointer: fine) {
+  .nb-btn:hover {
+    transform: translate(-1px, -1px);
+    box-shadow: 5px 5px 0 var(--nb-shadow);
+  }
 }
 .nb-btn:active {
   transform: translate(4px, 4px);
@@ -501,9 +508,11 @@
     transform 120ms ease-out,
     box-shadow 120ms ease-out;
 }
-.nb-option:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--nb-shadow);
+@media (hover: hover) and (pointer: fine) {
+  .nb-option:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--nb-shadow);
+  }
 }
 .nb-option:active {
   transform: translate(3px, 3px);
@@ -901,7 +910,8 @@ fieldset:disabled .nb-choice {
   border: 2.5px solid var(--nb-ink);
   border-radius: 0;
   font: inherit;
-  font-size: 1rem;
+  /* iOS zoome sur un champ en dessous de 16 px (taille du texte système réduite) */
+  font-size: max(16px, 1rem);
 }
 textarea.nb-input {
   resize: vertical;

@@ -2,6 +2,8 @@ import { createHashRouter } from 'react-router'
 import { CreateGroupPage } from './pages/CreateGroupPage'
 import { DiagnosticPage } from './pages/DiagnosticPage'
 import { HomePage } from './pages/HomePage'
+import { NoelEditionPage } from './pages/NoelEditionPage'
+import { NoelPage } from './pages/NoelPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { EventFormPage } from './pages/group/EventFormPage'
 import { EventPage } from './pages/group/EventPage'
@@ -39,5 +41,7 @@ export const router = createHashRouter([
     ],
   },
   { path: '/diagnostic', element: <DiagnosticPage /> },
+  { path: '/noel', element: <NoelPage /> },
+  { path: '/noel/edition', element: <NoelEditionPage /> },
   { path: '*', element: <NotFoundPage /> },
 ])

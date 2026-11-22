@@ -219,6 +219,37 @@ service cloud.firestore {
       }
     }
 
+    // ── Vitrine de Noël (/#/noel) ──────────────────────────────────────────
+    // Page publique hors groupes : toute la liste (prénom, textes, cadeaux et envies)
+    // tient dans ce document, sans aucune information de réservation. Le contenu des
+    // cadeaux est revalidé à la lecture (src/lib/vitrineNoel.ts).
+    // Écriture réservée aux appareils (uid anonymes) listés ci-dessous ; l'uid s'affiche
+    // sur /#/noel/edition. Après ajout : npm run deploy:rules.
+    function proprietairesVitrine() {
+      return [];
+    }
+
+    match /vitrines/{vitrineId} {
+      function validVitrine(data) {
+        return data.keys().hasOnly(['prenom', 'intro', 'outro', 'cadeaux', 'updatedAt'])
+          && data.keys().hasAll(['prenom', 'intro', 'cadeaux', 'updatedAt'])
+          && isString(data.prenom, 1, 40)
+          && isString(data.intro, 0, 600)
+          && (!('outro' in data) || isString(data.outro, 0, 600))
+          && data.cadeaux is list
+          && data.cadeaux.size() <= 60;
+      }
+
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if signedIn()
+        && request.auth.uid in proprietairesVitrine()
+        && vitrineId == 'noel'
+        && validVitrine(request.resource.data)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     // Tout le reste est refusé par défaut.
   }
 }

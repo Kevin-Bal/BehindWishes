@@ -358,6 +358,10 @@ Quatre évolutions de la V1.5 (saisie intelligente, PWA, reprise de liste, budge
 | Journal « Reçu » | Après la fête, noter ce qui a été reçu pour les remerciements | V2 | Aucun |
 | Rôles d’administration | Seuls les admins suppriment ou modifient les membres | V2 | Identité fiable (niveau 3 de confidentialité) |
 
+### Vitrine de Noël (`/#/noel`, hors MVP)
+
+Page publique autonome, sans groupe ni réservation : ma liste de Noël en style néo-brutaliste (pas de Liquid Glass, aucun `backdrop-filter`). Toute la liste (prénom, textes, cadeaux, prix, envies ★★★ / ★★ / ★, modèles au choix) vit dans le document Firestore `vitrines/noel`, lisible par tous et revalidé à la lecture ; `src/data/noel.ts` ne sert que de liste de départ tant que rien n’est enregistré. Tout se modifie sur `/#/noel/edition` (brouillon puis « Enregistrer »), réservée aux appareils dont l’uid anonyme figure dans `proprietairesVitrine()` de `firestore.rules` (l’uid s’affiche sur la page d’édition).
+
 Mon conseil de chef de projet : livrer le MVP, le faire tester par une vraie famille pendant un évènement, puis choisir la V1.5 selon les irritants observés plutôt que selon cette liste.
 
 ## Plan de réalisation pour Claude Code

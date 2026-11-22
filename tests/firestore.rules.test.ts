@@ -35,7 +35,14 @@ let env: RulesTestEnvironment
 beforeAll(async () => {
   env = await initializeTestEnvironment({
     projectId: PROJECT_ID,
-    firestore: { rules: readFileSync('firestore.rules', 'utf8') },
+    // La liste des propriétaires de la vitrine contient de vrais uid : on la remplace
+    // par un uid de test connu.
+    firestore: {
+      rules: readFileSync('firestore.rules', 'utf8').replace(
+        /function proprietairesVitrine\(\) \{[^}]*\}/,
+        "function proprietairesVitrine() { return ['proprio']; }",
+      ),
+    },
   })
 })
 
@@ -524,5 +531,53 @@ describe('claims', () => {
     await assertFails(getDoc(claimRef(lea, 'w1_tom')))
     // Un appareil sans session ne lit rien non plus.
     await assertFails(getDoc(claimRef(asDevice('sans-session'), 'w1_tom')))
+  })
+})
+
+describe('vitrines (page /noel)', () => {
+  const vitrine = (extra: Record<string, unknown> = {}) => ({
+    prenom: 'Kevin',
+    intro: 'Quelques idées',
+    cadeaux: [{ id: 'lego', nom: 'LEGO', envie: 'reve', prix: 109.99 }],
+    updatedAt: serverTimestamp(),
+    ...extra,
+  })
+
+  it('la vitrine se lit sans être connecté, mais ne se liste pas', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore() as unknown as Firestore
+      await setDoc(doc(db, 'vitrines', 'noel'), { ...vitrine(), updatedAt: new Date() })
+    })
+    await assertSucceeds(getDoc(doc(asAnonymous(), 'vitrines', 'noel')))
+    await assertFails(getDocs(collection(asAnonymous(), 'vitrines')))
+  })
+
+  it('seul un appareil propriétaire modifie la liste', async () => {
+    await assertSucceeds(setDoc(doc(asDevice('proprio'), 'vitrines', 'noel'), vitrine()))
+    await assertSucceeds(
+      setDoc(doc(asDevice('proprio'), 'vitrines', 'noel'), vitrine({ outro: 'Joyeux Noël' })),
+    )
+    await assertFails(setDoc(doc(asDevice('intrus'), 'vitrines', 'noel'), vitrine()))
+    await assertFails(setDoc(doc(asAnonymous(), 'vitrines', 'noel'), vitrine()))
+  })
+
+  it('refuse un champ en trop, une forme invalide ou une autre vitrine', async () => {
+    const db = asDevice('proprio')
+    await assertFails(setDoc(doc(db, 'vitrines', 'noel'), vitrine({ reservePar: 'tom' })))
+    await assertFails(setDoc(doc(db, 'vitrines', 'noel'), vitrine({ prenom: '' })))
+    await assertFails(setDoc(doc(db, 'vitrines', 'noel'), vitrine({ cadeaux: 'lego' })))
+    await assertFails(
+      setDoc(
+        doc(db, 'vitrines', 'noel'),
+        vitrine({ cadeaux: Array.from({ length: 61 }, (_, i) => ({ id: `c${i}`, nom: 'x' })) }),
+      ),
+    )
+    await assertFails(setDoc(doc(db, 'vitrines', 'noel'), vitrine({ updatedAt: new Date(0) })))
+    await assertFails(setDoc(doc(db, 'vitrines', 'anniversaire'), vitrine()))
+  })
+
+  it('la vitrine ne se supprime pas', async () => {
+    await assertSucceeds(setDoc(doc(asDevice('proprio'), 'vitrines', 'noel'), vitrine()))
+    await assertFails(deleteDoc(doc(asDevice('proprio'), 'vitrines', 'noel')))
   })
 })

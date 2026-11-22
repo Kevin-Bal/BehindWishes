@@ -225,6 +225,15 @@
   text-transform: uppercase;
 }
 
+.nb-grid > li,
+.nb-options > li,
+.nb-edit-list > li,
+.nb-card,
+.nb-card__body,
+.nb-option {
+  min-width: 0;
+}
+
 .nb-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 22rem));
@@ -270,7 +279,13 @@
   background: #ffffff;
   border-bottom: var(--nb-border);
 }
+/*
+ * Images hors du flux : sans ça, Safari (iPhone) dimensionne la grille d'après la
+ * taille d'origine des photos (1000 à 2000 px), la page s'élargit et l'écran dézoome.
+ */
 .nb-card__media img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -487,7 +502,7 @@
 
 .nb-options {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.25rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(7.25rem, 100%), 1fr));
   gap: 0.9rem;
   margin: 0;
   padding: 0;
@@ -523,6 +538,7 @@
   outline-offset: 3px;
 }
 .nb-option__img {
+  position: relative;
   display: grid;
   place-items: center;
   aspect-ratio: 1 / 1.414;
@@ -531,6 +547,8 @@
   overflow: hidden;
 }
 .nb-option__img img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -642,6 +660,7 @@
   margin-bottom: 0.85rem;
 }
 .nb-edit__thumb {
+  position: relative;
   flex: none;
   display: grid;
   place-items: center;
@@ -652,6 +671,8 @@
   overflow: hidden;
 }
 .nb-edit__thumb img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;

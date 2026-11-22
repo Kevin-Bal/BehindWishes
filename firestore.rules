@@ -226,7 +226,9 @@ service cloud.firestore {
     // Écriture réservée aux appareils (uid anonymes) listés ci-dessous ; l'uid s'affiche
     // sur /#/noel/edition. Après ajout : npm run deploy:rules.
     function proprietairesVitrine() {
-      return [];
+      return [
+        'wlwYVcf6GQUu9rY3Z3G92nr8xCH2' // premier appareil autorisé
+      ];
     }
 
     match /vitrines/{vitrineId} {

@@ -6,6 +6,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // Le site est servi sur https://kevin-bal.github.io/BehindWishes/
 export default defineConfig({
   base: '/BehindWishes/',
+  // Version affichée en mode diagnostic (/#/noel?debug) : commit construit par la CI.
+  define: {
+    __BUILD__: JSON.stringify((process.env.GITHUB_SHA ?? 'dev').slice(0, 7)),
+  },
   plugins: [
     react(),
     tailwindcss(),

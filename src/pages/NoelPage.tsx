@@ -1,4 +1,6 @@
 import { useEffect, type CSSProperties } from 'react'
+import { useSearchParams } from 'react-router'
+import { NoelDiagnostic } from '../components/NoelDiagnostic'
 import { CadeauImage, Decor, EnvieBadge } from '../components/noel'
 import { listeNoel, ORDRE_ENVIES, type Cadeau, type ListeNoel } from '../data/noel'
 import { useListeNoel } from '../lib/vitrineNoel'
@@ -29,6 +31,7 @@ function joursAvantNoel(maintenant = new Date()): number {
 
 export function NoelPage() {
   const etat = useListeNoel()
+  const [params] = useSearchParams()
   const prenom = etat.statut === 'pret' ? etat.liste.prenom : listeNoel.prenom
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function NoelPage() {
         <Vitrine liste={etat.liste} />
       )}
       <div className="nb-stripes" aria-hidden="true" />
+      {params.has('debug') && <NoelDiagnostic />}
     </div>
   )
 }
@@ -172,7 +176,7 @@ function CadeauCard({ cadeau, tilt }: { cadeau: Cadeau; tilt: number }) {
                     rel="noopener noreferrer"
                   >
                     <span className="nb-option__img">
-                      <CadeauImage src={option.image} />
+                      <CadeauImage src={option.image} largeur={360} />
                     </span>
                     <span className="nb-option__name">{option.nom}</span>
                     {option.auteur && <span className="nb-option__author">{option.auteur}</span>}

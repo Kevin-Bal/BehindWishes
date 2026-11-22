@@ -106,7 +106,11 @@ export function NoelCadeauEditeur({
     <article className="nb-edit" id={id} aria-invalid={erreur ? true : undefined}>
       <div className="nb-edit__head">
         <span className="nb-edit__thumb">
-          <CadeauImage src={cadeau.image ?? options[0]?.image} />
+          <CadeauImage
+            key={cadeau.image ?? options[0]?.image}
+            src={cadeau.image ?? options[0]?.image}
+            largeur={160}
+          />
         </span>
         <h3 className="nb-edit__name">{cadeau.nom.trim() || 'Nouveau cadeau'}</h3>
       </div>

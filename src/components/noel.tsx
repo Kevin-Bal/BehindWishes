@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ENVIES, type Envie } from '../data/noel'
+import { imageLegere } from '../lib/images'
 
 /**
  * Briques néo-brutalistes partagées par la vitrine `/#/noel` et sa page d'édition.
@@ -15,18 +16,31 @@ export function EnvieBadge({ envie }: { envie: Envie }) {
   )
 }
 
-/** Photo produit, ou un paquet cadeau dessiné si elle manque ou ne charge pas. */
-export function CadeauImage({ src, className }: { src?: string; className?: string }) {
-  const [ko, setKo] = useState(false)
-  if (!src || ko) return <GiftIcon />
+/**
+ * Photo produit, demandée à la taille affichée (`largeur`, en pixels réels) ; si le
+ * CDN refuse la version réduite, on retente l'originale, puis on dessine un paquet cadeau.
+ */
+export function CadeauImage({
+  src,
+  className,
+  largeur = 700,
+}: {
+  src?: string
+  className?: string
+  largeur?: number
+}) {
+  const [essai, setEssai] = useState<'leger' | 'original' | 'ko'>('leger')
+  if (!src || essai === 'ko') return <GiftIcon />
+  const leger = imageLegere(src, largeur)
   return (
     <img
       className={className}
-      src={src}
+      src={essai === 'leger' ? leger : src}
       alt=""
       loading="lazy"
+      decoding="async"
       referrerPolicy="no-referrer"
-      onError={() => setKo(true)}
+      onError={() => setEssai(essai === 'leger' && leger !== src ? 'original' : 'ko')}
     />
   )
 }
